@@ -1,1 +1,3 @@
 TAINT is a php-ext used to detect XXS codes
+The idea is from https://wiki.php.net/rfc/taint, I implemented it in a php extension which make the patch no-needed.
+Please note that do not enable this extension in product env.
