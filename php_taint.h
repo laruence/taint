@@ -59,7 +59,7 @@ PHP_RSHUTDOWN_FUNCTION(taint);
 PHP_MINFO_FUNCTION(taint);
 
 PHP_FUNCTION(untaint);
-PHP_FUNCTION(is_taint);
+PHP_FUNCTION(is_tainted);
 
 ZEND_BEGIN_MODULE_GLOBALS(taint)
 	zend_bool enable;

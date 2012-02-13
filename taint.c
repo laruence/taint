@@ -36,7 +36,7 @@ ZEND_DECLARE_MODULE_GLOBALS(taint)
  */
 zend_function_entry taint_functions[] = {
 	PHP_FE(untaint, NULL)
-	PHP_FE(is_taint, NULL)
+	PHP_FE(is_tainted, NULL)
 	{NULL, NULL, NULL}
 };
 /* }}} */
@@ -85,37 +85,20 @@ static void php_taint_mark_strings(zval *symbol_table TSRMLS_DC) /* {{{ */ {
 } /* }}} */
 
 static inline void taint_pzval_unlock_func(zval *z, zend_free_op *should_free, int unref) /* {{{ */ {   
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
-    if (!--z->refcount) {
-        z->refcount = 1;
-        z->is_ref = 0;
+    if (!Z_DELREF_P(z)) {
+        Z_SET_REFCOUNT_P(z, 1);
+        Z_UNSET_ISREF_P(z);
         should_free->var = z;
     } else {
         should_free->var = 0;
-        if (unref && z->is_ref && z->refcount == 1) {
-            z->is_ref = 0;
+        if (unref && Z_ISREF_P(z) && Z_REFCOUNT_P(z) == 1) {
+			Z_UNSET_ISREF_P(z);
         }
     }
-#else
-    if (!--z->refcount__gc) {
-        z->refcount__gc = 1;
-        z->is_ref__gc = 0;
-        should_free->var = z;
-    } else {
-        should_free->var = 0;
-        if (unref && z->is_ref__gc && z->refcount__gc == 1) {
-            z->is_ref__gc = 0;
-        }
-    }
-#endif
 } /* }}} */
      
 static inline void taint_pzval_unlock_free_func(zval *z) /* {{{ */ {
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
-    if (!--z->refcount) {
-#else
-    if (!--z->refcount__gc) {
-#endif
+    if (!Z_DELREF_P(z)) {
         zval_dtor(z);
         safe_free_zval_ptr(z);
     }
@@ -448,9 +431,9 @@ PHP_FUNCTION(untaint)
 }
 /* }}} */
 
-/* {{{ proto bool is_taint(string $str) 
+/* {{{ proto bool is_tainted(string $str) 
  */
-PHP_FUNCTION(is_taint) 
+PHP_FUNCTION(is_tainted) 
 {
 	zval *arg;
 
