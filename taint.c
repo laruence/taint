@@ -250,46 +250,17 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 #endif
 		int arg_count = opline->extended_value;
 		do { 
-			if (strncmp("print_r", fname, len) == 0) {
-				/* mixed print_r ( mixed $expression [, bool $return = false ] ) */
+			if (strncmp("print_r", fname, len) == 0
+				   || strncmp("passthru", fname, len) == 0
+				   || strncmp("system", fname, len) == 0
+				   || strncmp("exec", fname, len) == 0
+				   || strncmp("mysqli_query", fname, len) == 0
+				   || strncmp("mysql_query", fname, len) == 0 ) {
 				if (arg_count) {
 					zval *el;
 					el = *((zval **) (p - (arg_count)));
 					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error("function.print_r" TSRMLS_CC, "First argument contains data that might be tainted");
-					}
-				}
-				break;
-			}
-
-			if (strncmp("exec", fname, len) == 0) {
-				if (arg_count) {
-					zval *el;
-					el = *((zval **) (p - (arg_count)));
-					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error("function.exec" TSRMLS_CC, "First argument contains data that might be tainted");
-					}
-				}
-				break;
-			}
-
-			if (strncmp("system", fname, len) == 0) {
-				if (arg_count) {
-					zval *el;
-					el = *((zval **) (p - (arg_count)));
-					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error("function.system" TSRMLS_CC, "First argument contains data that might be tainted");
-					}
-				}
-				break;
-			}
-
-			if (strncmp("passthru", fname, len) == 0) {
-				if (arg_count) {
-					zval *el;
-					el = *((zval **) (p - (arg_count)));
-					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error("function.passthru" TSRMLS_CC, "First argument contains data that might be tainted");
+						php_taint_error(NULL TSRMLS_CC, "First argument contains data that might be tainted");
 					}
 				}
 				break;
