@@ -55,9 +55,13 @@ zend_module_entry taint_module_entry = {
 	PHP_RSHUTDOWN(taint),	/* Replace with NULL if there's nothing to do at request end */
 	PHP_MINFO(taint),
 #if ZEND_MODULE_API_NO >= 20010901
-	"0.1", /* Replace with version number for your extension */
+	PHP_TAINT_VERSION, /* Replace with version number for your extension */
 #endif
-	STANDARD_MODULE_PROPERTIES
+	PHP_MODULE_GLOBALS(taint),
+	NULL,
+	NULL,
+	NULL,
+	STANDARD_MODULE_PROPERTIES_EX
 };
 /* }}} */
 
@@ -81,6 +85,7 @@ static void php_taint_mark_strings(zval *symbol_table TSRMLS_DC) /* {{{ */ {
 } /* }}} */
 
 static inline void taint_pzval_unlock_func(zval *z, zend_free_op *should_free, int unref) /* {{{ */ {   
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
     if (!--z->refcount) {
         z->refcount = 1;
         z->is_ref = 0;
@@ -91,10 +96,26 @@ static inline void taint_pzval_unlock_func(zval *z, zend_free_op *should_free, i
             z->is_ref = 0;
         }
     }
+#else
+    if (!--z->refcount__gc) {
+        z->refcount__gc = 1;
+        z->is_ref__gc = 0;
+        should_free->var = z;
+    } else {
+        should_free->var = 0;
+        if (unref && z->is_ref__gc && z->refcount__gc == 1) {
+            z->is_ref__gc = 0;
+        }
+    }
+#endif
 } /* }}} */
      
 static inline void taint_pzval_unlock_free_func(zval *z) /* {{{ */ {
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
     if (!--z->refcount) {
+#else
+    if (!--z->refcount__gc) {
+#endif
         zval_dtor(z);
         safe_free_zval_ptr(z);
     }
@@ -126,8 +147,13 @@ static inline zval * php_taint_get_zval_ptr_var(znode *node, temp_variable *Ts, 
             ptr->value.str.len = 1;
         }
         TAINT_PZVAL_UNLOCK_FREE(str);
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
         ptr->refcount = 1;
         ptr->is_ref = 1;
+#else
+        ptr->refcount__gc = 1;
+        ptr->is_ref__gc = 1;
+#endif
         ptr->type = IS_STRING;
         return ptr;
     }
@@ -149,10 +175,10 @@ static zval * php_taint_get_zval_ptr_tmp(znode *node, temp_variable *Ts, zend_fr
     return should_free->var = &(*(temp_variable *)((char *)Ts + node->u.var)).tmp_var;
 } /* }}} */
 
-static void php_taint_error(const char *docref, const char *format TSRMLS_CC, ...) /* {{{ */ {
+static void php_taint_error(const char *docref TSRMLS_DC, const char *format, ...) /* {{{ */ {
 	va_list args;
 	va_start(args, format);
-	php_verror(docref, "", E_WARNING, format, args TSRMLS_CC);
+	php_verror(docref, "", TAINT_G(error_level), format, args TSRMLS_CC);
 	va_end(args);
 } /* }}} */
 
@@ -171,7 +197,7 @@ static int php_taint_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 			op1 = php_taint_get_zval_ptr_var(&opline->op1, execute_data->Ts, &free_op1 TSRMLS_CC);
 			break;
 		case IS_CV:
-			op1 = php_taint_get_zval_ptr_cv(&opline->op1, execute_data->Ts);
+			op1 = php_taint_get_zval_ptr_cv(&opline->op1, execute_data->Ts TSRMLS_CC);
 			break;
 		case IS_CONST:
 	 		op1 = &opline->op1.u.constant;;
@@ -186,7 +212,7 @@ static int php_taint_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 			op2 = php_taint_get_zval_ptr_var(&opline->op2, execute_data->Ts, &free_op2 TSRMLS_CC);
 			break;
 		case IS_CV:
-			op2 = php_taint_get_zval_ptr_cv(&opline->op2, execute_data->Ts);
+			op2 = php_taint_get_zval_ptr_cv(&opline->op2, execute_data->Ts TSRMLS_CC);
 			break;
 		case IS_CONST:
 	 		op2 = &opline->op2.u.constant;;
@@ -232,61 +258,55 @@ static int php_taint_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 	return ZEND_USER_OPCODE_CONTINUE;
 } /* }}} */
 
-static void php_taint_fcall_check(zend_op *opline, char *fname, int len TSRMLS_DC) /* {{{ */ {
+static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, char *fname, int len) /* {{{ */ {
 	if (fname) {
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
+		void **p = EG(argument_stack).top_element;
+#else
+	    void **p = EG(argument_stack)->top - 1;
+#endif
+		int arg_count = opline->extended_value;
 		do { 
 			if (strncmp("print_r", fname, len) == 0) {
 				/* mixed print_r ( mixed $expression [, bool $return = false ] ) */
-				void **p = EG(argument_stack).top_element;
-				int arg_count = opline->extended_value;
-
 				if (arg_count) {
 					zval *el;
 					el = *((zval **) (p - (arg_count)));
 					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error("function.print_r", "First argument contains data that might be tainted" TSRMLS_CC);
+						php_taint_error("function.print_r" TSRMLS_CC, "First argument contains data that might be tainted");
 					}
 				}
 				break;
 			}
 
 			if (strncmp("exec", fname, len) == 0) {
-				void **p = EG(argument_stack).top_element;
-				int arg_count = opline->extended_value;
-
 				if (arg_count) {
 					zval *el;
 					el = *((zval **) (p - (arg_count)));
 					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error("function.exec", "First argument contains data that might be tainted" TSRMLS_CC);
+						php_taint_error("function.exec" TSRMLS_CC, "First argument contains data that might be tainted");
 					}
 				}
 				break;
 			}
 
 			if (strncmp("system", fname, len) == 0) {
-				void **p = EG(argument_stack).top_element;
-				int arg_count = opline->extended_value;
-
 				if (arg_count) {
 					zval *el;
 					el = *((zval **) (p - (arg_count)));
 					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error("function.system", "First argument contains data that might be tainted" TSRMLS_CC);
+						php_taint_error("function.system" TSRMLS_CC, "First argument contains data that might be tainted");
 					}
 				}
 				break;
 			}
 
 			if (strncmp("passthru", fname, len) == 0) {
-				void **p = EG(argument_stack).top_element;
-				int arg_count = opline->extended_value;
-
 				if (arg_count) {
 					zval *el;
 					el = *((zval **) (p - (arg_count)));
 					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error("function.passthru", "First argument contains data that might be tainted" TSRMLS_CC);
+						php_taint_error("function.passthru" TSRMLS_CC, "First argument contains data that might be tainted");
 					}
 				}
 				break;
@@ -300,9 +320,6 @@ static void php_taint_fcall_check(zend_op *opline, char *fname, int len TSRMLS_D
 					|| strncmp("mysqli_escape_string", fname, len) == 0 
 					|| strncmp("mysql_real_escape_string", fname, len) == 0 
 					|| strncmp("mysql_escape_string", fname, len) == 0) {
-				void **p = EG(argument_stack).top_element;
-				int arg_count = opline->extended_value;
-
 				if (arg_count) {
 					zval *el;
 					el = *((zval **) (p - (arg_count)));
@@ -320,21 +337,36 @@ static void php_taint_fcall_check(zend_op *opline, char *fname, int len TSRMLS_D
 static int php_taint_do_fcall_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
 	zval *fname = &opline->op1.u.constant;
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
 	zend_function *old_func = EG(function_state_ptr)->function;
 	if (zend_hash_find(EG(function_table), fname->value.str.val, fname->value.str.len+1, (void **)&EG(function_state_ptr)->function) == SUCCESS) {
-		php_taint_fcall_check(opline, Z_STRVAL_P(fname), Z_STRLEN_P(fname) TSRMLS_CC);
+		php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, Z_STRVAL_P(fname), Z_STRLEN_P(fname));
 	}
 	EG(function_state_ptr)->function = old_func;
+#else
+	zend_function *old_func = EG(current_execute_data)->function_state.function;
+	if (zend_hash_find(EG(function_table), fname->value.str.val, fname->value.str.len+1, (void **)&EG(current_execute_data)->function_state.function) == SUCCESS) {
+		php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, Z_STRVAL_P(fname), Z_STRLEN_P(fname));
+	}
+	EG(current_execute_data)->function_state.function = old_func;
+#endif
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
 static int php_taint_do_fcall_by_name_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
 	char *fname = execute_data->fbc->common.function_name;
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
 	zend_function *old_func = EG(function_state_ptr)->function;
 	EG(function_state_ptr)->function = execute_data->fbc;
-	php_taint_fcall_check(opline, fname, strlen(fname) TSRMLS_CC);
+	php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, fname, strlen(fname));
 	EG(function_state_ptr)->function = old_func;
+#else
+	zend_function *old_func = EG(current_execute_data)->function_state.function;
+	EG(current_execute_data)->function_state.function = execute_data->fbc;
+	php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, fname, strlen(fname));
+	EG(current_execute_data)->function_state.function = old_func;
+#endif
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
@@ -352,12 +384,12 @@ static int php_taint_echo_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 			op1 = php_taint_get_zval_ptr_var(&opline->op1, execute_data->Ts, &free_op1 TSRMLS_CC);
 			break;
 		case IS_CV:
-			op1 = php_taint_get_zval_ptr_cv(&opline->op1, execute_data->Ts);
+			op1 = php_taint_get_zval_ptr_cv(&opline->op1, execute_data->Ts TSRMLS_CC);
 			break;
 	}
 
 	if (op1 && IS_STRING == Z_TYPE_P(op1) && PHP_TAINT_POSSIBLE(op1)) {
-		php_taint_error("function.echo", "Argument contains data that is not converted with htmlspecialchars() or htmlentities()" TSRMLS_CC);
+		php_taint_error("function.echo" TSRMLS_CC, "Argument contains data that is not converted with htmlspecialchars() or htmlentities()");
 	}
 
 	return ZEND_USER_OPCODE_DISPATCH;
@@ -380,19 +412,8 @@ static PHP_INI_MH(OnUpdateErrorLevel) /* {{{ */ {
  */
 PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("taint.enable", "0", PHP_INI_SYSTEM, OnUpdateBool, enable, zend_taint_globals, taint_globals)
-	STD_PHP_INI_ENTRY("taint.error_level", "E_WARNING", PHP_INI_ALL, OnUpdateErrorLevel, error_level, zend_taint_globals, taint_globals)
+	STD_PHP_INI_ENTRY("taint.error_level", "2", PHP_INI_ALL, OnUpdateErrorLevel, error_level, zend_taint_globals, taint_globals)
 PHP_INI_END()
-/* }}} */
-
-/* {{{ php_taint_init_globals
- */
-/* Uncomment this function if you have INI entries
-static void php_taint_init_globals(zend_taint_globals *taint_globals)
-{
-	taint_globals->global_value = 0;
-	taint_globals->global_string = NULL;
-}
-*/
 /* }}} */
 
 /* {{{ proto bool untaint(string $str[, string ...]) 
@@ -454,15 +475,11 @@ PHP_FUNCTION(is_taint)
 PHP_MINIT_FUNCTION(taint)
 {
 	REGISTER_INI_ENTRIES();
-
-	if (TAINT_G(enable)) {
-		zend_set_user_opcode_handler(ZEND_CONCAT, php_taint_concat_handler);
-		zend_set_user_opcode_handler(ZEND_ECHO, php_taint_echo_handler);
-		zend_set_user_opcode_handler(ZEND_PRINT, php_taint_echo_handler);
-		zend_set_user_opcode_handler(ZEND_DO_FCALL, php_taint_do_fcall_handler);
-		zend_set_user_opcode_handler(ZEND_DO_FCALL_BY_NAME, php_taint_do_fcall_by_name_handler);
-	}
-
+	zend_set_user_opcode_handler(ZEND_CONCAT, php_taint_concat_handler);
+	zend_set_user_opcode_handler(ZEND_ECHO, php_taint_echo_handler);
+	zend_set_user_opcode_handler(ZEND_PRINT, php_taint_echo_handler);
+	zend_set_user_opcode_handler(ZEND_DO_FCALL, php_taint_do_fcall_handler);
+	zend_set_user_opcode_handler(ZEND_DO_FCALL_BY_NAME, php_taint_do_fcall_by_name_handler);
 	return SUCCESS;
 }
 /* }}} */
@@ -471,7 +488,7 @@ PHP_MINIT_FUNCTION(taint)
  */
 PHP_MSHUTDOWN_FUNCTION(taint)
 {
-	//UNREGISTER_INI_ENTRIES();
+	UNREGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
 /* }}} */
