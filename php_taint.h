@@ -42,11 +42,20 @@ extern zend_module_entry taint_module_entry;
 #define PHP_TAINT_MAGIC_UNTAINT  0x6C5E8F2D
 
 #define TAINT_T(offset) (*(temp_variable *)((char *) execute_data->Ts + offset))
+#define TAINT_TS(offset) (*(temp_variable *)((char *)Ts + offset))
 #define TAINT_CV(i)     (EG(current_execute_data)->CVs[i])
+#define TAINT_PZVAL_LOCK(z) Z_ADDREF_P(z);
 #define TAINT_PZVAL_UNLOCK(z, f) taint_pzval_unlock_func(z, f, 1)
 #define TAINT_PZVAL_UNLOCK_FREE(z) taint_pzval_unlock_free_func(z)
 #define TAINT_CV_OF(i)     (EG(current_execute_data)->CVs[i])
 #define TAINT_CV_DEF_OF(i) (EG(active_op_array)->vars[i])
+#define TAINT_AI_USE_PTR(ai) \
+	if ((ai).ptr_ptr) { \
+		(ai).ptr = *((ai).ptr_ptr); \
+		(ai).ptr_ptr = &((ai).ptr); \
+	} else { \
+		(ai).ptr = NULL; \
+	}
 
 #define PHP_TAINT_MARK(zv, mark) *((unsigned *)(Z_STRVAL_P(zv) + Z_STRLEN_P(zv) + 1)) = (mark)
 #define PHP_TAINT_POSSIBLE(zv) (*(unsigned *)(Z_STRVAL_P(zv) + Z_STRLEN_P(zv) + 1) == PHP_TAINT_MAGIC_POSSIBLE)
