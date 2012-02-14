@@ -61,6 +61,15 @@ extern zend_module_entry taint_module_entry;
 #define PHP_TAINT_POSSIBLE(zv) (*(unsigned *)(Z_STRVAL_P(zv) + Z_STRLEN_P(zv) + 1) == PHP_TAINT_MAGIC_POSSIBLE)
 #define PHP_TAINT_UNTAINT(zv)  (*(unsigned *)(Z_STRVAL_P(zv) + Z_STRLEN_P(zv) + 1) == PHP_TAINT_MAGIC_UNTAINT)
 
+#if ((PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3))
+#  define Z_ADDREF_P   ZVAL_ADDREF
+#  define Z_REFCOUNT_P ZVAL_REFCOUNT
+#  define Z_DELREF_P   ZVAL_DELREF
+#  define Z_SET_REFCOUNT_P(pz, rc)  (pz)->refcount = rc 
+#  define Z_UNSET_ISREF_P(pz) (pz)->is_ref = 0 
+#  define Z_ISREF_P(pz)       (pz)->is_ref
+#endif
+
 PHP_MINIT_FUNCTION(taint);
 PHP_MSHUTDOWN_FUNCTION(taint);
 PHP_RINIT_FUNCTION(taint);
