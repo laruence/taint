@@ -38,8 +38,8 @@ extern zend_module_entry taint_module_entry;
 
 #define PHP_TAINT_MAGIC_LENGTH   sizeof(unsigned)
 #define PHP_TAINT_MAGIC_NONE     0x00000000
-#define PHP_TAINT_MAGIC_POSSIBLE 0x2A8FCC84
-#define PHP_TAINT_MAGIC_UNTAINT  0x6C5E8F2D
+#define PHP_TAINT_MAGIC_POSSIBLE 0x6A8FCE84
+#define PHP_TAINT_MAGIC_UNTAINT  0x2C5E7F2D
 
 #define TAINT_T(offset) (*(temp_variable *)((char *) execute_data->Ts + offset))
 #define TAINT_TS(offset) (*(temp_variable *)((char *)Ts + offset))

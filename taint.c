@@ -113,7 +113,7 @@ static void php_taint_get_cv_address(zend_compiled_variable *cv, zval ***ptr, te
 /* }}} */
 
 static zval * php_taint_get_zval_ptr_var(znode *node, temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {
-    zval *ptr = (*(temp_variable *)((char *)Ts + node->u.var)).var.ptr;
+    zval *ptr = TAINT_TS(node->u.var).var.ptr;
     if (ptr) {
         TAINT_PZVAL_UNLOCK(ptr, should_free);
         return ptr;
@@ -163,7 +163,7 @@ static zval * php_taint_get_zval_ptr_cv(znode *node, temp_variable *Ts TSRMLS_DC
 } /* }}} */
 
 static zval * php_taint_get_zval_ptr_tmp(znode *node, temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {   
-    return should_free->var = &(*(temp_variable *)((char *)Ts + node->u.var)).tmp_var;
+    return should_free->var = &TAINT_TS(node->u.var).tmp_var;
 } /* }}} */
 
 static zval **php_taint_get_zval_ptr_ptr_var(znode *node, temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {
@@ -234,10 +234,14 @@ static int php_taint_echo_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 			op1 = php_taint_get_zval_ptr_tmp(&opline->op1, execute_data->Ts, &free_op1 TSRMLS_CC);
 			break;
 		case IS_VAR:
-			op1 = php_taint_get_zval_ptr_var(&opline->op1, execute_data->Ts, &free_op1 TSRMLS_CC);
+			op1 = TAINT_T(opline->op1.u.var).var.ptr;
 			break;
-		case IS_CV:
-			op1 = php_taint_get_zval_ptr_cv(&opline->op1, execute_data->Ts TSRMLS_CC);
+		case IS_CV: {
+				zval **t = TAINT_CV_OF(opline->op1.u.var);
+				if (t && *t) {
+					op1 = *t;
+				}
+		    } 
 			break;
 	}
 
