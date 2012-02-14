@@ -1,6 +1,6 @@
-TAINT is a php-ext used to detect XXS codes
+TAINT is a php-ext used to detect XSS codes(tainted string).
 The idea is from https://wiki.php.net/rfc/taint, I implemented it in a php extension which make the patch no-needed.
 
 Please note that do not enable this extension in product env.
 
-Works with PHP-5.2.6 ~ PHP-5.3.10, will fix the 5.4 compile issues soon
+Works with PHP-5.2.6 ~ PHP-5.3.10, will fix the 5.4 compile issues soon.
