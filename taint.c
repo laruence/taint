@@ -263,10 +263,14 @@ static int php_taint_include_or_eval_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */
 			op1 = php_taint_get_zval_ptr_tmp(&opline->op1, execute_data->Ts, &free_op1 TSRMLS_CC);
 			break;
 		case IS_VAR:
-			op1 = php_taint_get_zval_ptr_var(&opline->op1, execute_data->Ts, &free_op1 TSRMLS_CC);
+			op1 = TAINT_T(opline->op1.u.var).var.ptr;
 			break;
-		case IS_CV:
-			op1 = php_taint_get_zval_ptr_cv(&opline->op1, execute_data->Ts TSRMLS_CC);
+		case IS_CV: {
+				zval **t = TAINT_CV_OF(opline->op1.u.var);
+				if (t && *t) {
+					op1 = *t;
+				}
+		    } 
 			break;
 		case IS_CONST:
 	 		op1 = &opline->op1.u.constant;;
