@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<package xmlns="http://pear.php.net/dtd/package-2.0" xmlns:tasks="http://pear.php.net/dtd/tasks-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" packagerversion="1.4.7" version="2.0" xsi:schemaLocation="http://pear.php.net/dtd/tasks-1.0 http://pear.php.net/dtd/tasks-1.0.xsd http://pear.php.net/dtd/package-2.0 http://pear.php.net/dtd/package-2.0.xsd"> 
+ <name>taint</name>
+ <channel>pecl.php.net</channel>
+ <summary>XSS code sniffer</summary>
+ <description>extension used for detecting XSS codes(tainted string)</description>
+ <lead>
+  <name>Xinchen Hui</name>
+  <user>laruence</user>
+  <email>laruence@php.net</email>
+  <active>yes</active>
+ </lead>
+ <date>2012-02-15</date>
+ <time>16:28:18</time>
+ <version>
+  <release>0.0.1</release>
+  <api>0.0.1</api>
+ </version>
+ <stability>
+  <release>beta</release>
+  <api>beta</api>
+ </stability>
+ <license uri="http://www.php.net/license">PHP</license>
+ <notes>
+  - First release
+ </notes>
+ <contents> 
+  <dir name="/"> 
+   <file name="config.m4"    role="src" />
+   <file name="php_taint.h" role="src" />
+   <file name="taint.c" role="src" />
+   <file name="config.w32" role="src" />
+   <file name="CREDITS" role="src" />
+   <file name="EXPERIMENTAL" role="src" />
+   <dir name="tests">
+    <file name="001.phpt" role="test" />
+    <file name="002.phpt" role="test" />
+   </dir>
+  </dir> 
+ </contents> 
+ <dependencies> 
+  <required> 
+   <php> 
+    <min>5.2.0</min> 
+    <max>5.4.0</max>
+   </php> 
+   <pearinstaller> 
+    <min>1.4.0</min> 
+   </pearinstaller> 
+  </required> 
+ </dependencies> 
+ <providesextension>taint</providesextension>
+ <extsrcrelease />
+ <changelog> 
+ </changelog> 
+</package> 
+<!--
+vim:et:ts=1:sw=1
+--> 
