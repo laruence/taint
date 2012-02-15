@@ -32,11 +32,29 @@
 
 ZEND_DECLARE_MODULE_GLOBALS(taint)
 
+/* {{{ TAINT_ARG_INFO
+ */
+ZEND_BEGIN_ARG_INFO_EX(taint_arginfo, 0, 0, 1)
+	ZEND_ARG_INFO(0, string)
+	ZEND_ARG_INFO(0, ...)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(untaint_arginfo, 0, 0, 1)
+	ZEND_ARG_INFO(0, string)
+	ZEND_ARG_INFO(0, ...)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(is_tainted_arginfo, 0, 0, 1)
+	ZEND_ARG_INFO(0, string)
+ZEND_END_ARG_INFO()
+/* }}} */
+
 /* {{{ taint_functions[]
  */
 zend_function_entry taint_functions[] = {
-	PHP_FE(untaint, NULL)
-	PHP_FE(is_tainted, NULL)
+	PHP_FE(taint, taint_arginfo)
+	PHP_FE(untaint, untaint_arginfo)
+	PHP_FE(is_tainted, is_tainted_arginfo)
 	{NULL, NULL, NULL}
 };
 /* }}} */
@@ -336,7 +354,11 @@ static int php_taint_echo_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 	}
 
 	if (op1 && IS_STRING == Z_TYPE_P(op1) && PHP_TAINT_POSSIBLE(op1)) {
-		php_taint_error("function.echo" TSRMLS_CC, "Argument contains data that is not converted with htmlspecialchars() or htmlentities()");
+		if (ZEND_ECHO == opline->opcode) {
+			php_taint_error("function.echo" TSRMLS_CC, "Attempt to echo a string which might be tainted");
+		} else {
+			php_taint_error("function.echo" TSRMLS_CC, "Attempt to print a string which might be tainted");
+		}
 	}
 
 	return ZEND_USER_OPCODE_DISPATCH;
@@ -795,13 +817,42 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 				   || strncmp("passthru", fname, len) == 0
 				   || strncmp("system", fname, len) == 0
 				   || strncmp("exec", fname, len) == 0
+				   || strncmp("shell_exec", fname, len) == 0
+				   || strncmp("proc_open", fname, len) == 0
 				   || strncmp("mysqli_query", fname, len) == 0
-				   || strncmp("mysql_query", fname, len) == 0 ) {
+				   || strncmp("mysql_query", fname, len) == 0 
+				   || strncmp("fopen", fname, len) == 0
+				   || strncmp("opendir", fname, len) == 0
+				   || strncmp("dirname", fname, len) == 0
+				   || strncmp("basename", fname, len) == 0
+				   || strncmp("pathinfo", fname, len) == 0
+				   || strncmp("file", fname, len) == 0 ) {
 				if (arg_count) {
 					zval *el;
 					el = *((zval **) (p - (arg_count)));
 					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
 						php_taint_error(NULL TSRMLS_CC, "First argument contains data that might be tainted");
+					}
+				}
+				break;
+			}
+
+			if (strncmp("file_put_contents", fname, len) == 0
+				   || strncmp("fwrite", fname, len) == 0) {
+				if (arg_count) {
+					zval *fp, *str;
+					fp = *((zval **) (p - (arg_count)));
+					str = *((zval **) (p - (arg_count - 1)));
+
+					if (fp && IS_RESOURCE == Z_TYPE_P(fp)) {
+						break;
+					} else if (fp && IS_STRING == Z_TYPE_P(fp)) {
+						if (strncasecmp("php://output", Z_STRVAL_P(fp), Z_STRLEN_P(fp))) {
+							break;
+						}
+					}
+					if (str && IS_STRING == Z_TYPE_P(str) && PHP_TAINT_POSSIBLE(str)) {
+						php_taint_error(NULL TSRMLS_CC, "Second argument contains data that might be tainted");
 					}
 				}
 				break;
@@ -887,6 +938,46 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("taint.enable", "0", PHP_INI_SYSTEM, OnUpdateBool, enable, zend_taint_globals, taint_globals)
 	STD_PHP_INI_ENTRY("taint.error_level", "2", PHP_INI_ALL, OnUpdateErrorLevel, error_level, zend_taint_globals, taint_globals)
 PHP_INI_END()
+/* }}} */
+
+/* {{{ proto bool taint(string $str[, string ...]) 
+ */
+PHP_FUNCTION(taint) 
+{
+	zval ***args;
+	int argc;
+	int i;
+
+	if (!TAINT_G(enable)) {
+		RETURN_TRUE;
+	}
+
+	argc = ZEND_NUM_ARGS();
+	args = (zval ***)safe_emalloc(argc, sizeof(zval **), 0);
+
+	if (ZEND_NUM_ARGS() == 0 || zend_get_parameters_array_ex(argc, args) == FAILURE) {
+		efree(args);
+		return;
+	}
+
+	for (i=0; i<argc; i++) {
+		if (IS_STRING == Z_TYPE_PP(args[i]) ) {
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION > 3) 
+			if (IS_INTERNED(Z_STRVAL_PP(args[i]))) {
+				efree(args);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%dth arg is internal string", i+1);
+				RETURN_FALSE;
+			}
+#endif
+			Z_STRVAL_PP(args[i]) = erealloc(Z_STRVAL_PP(args[i]), Z_STRLEN_PP(args[i]) + 1 + PHP_TAINT_MAGIC_LENGTH);
+			PHP_TAINT_MARK(*args[i], PHP_TAINT_MAGIC_POSSIBLE);
+		}
+	}
+
+	efree(args);
+
+	RETURN_TRUE;
+}
 /* }}} */
 
 /* {{{ proto bool untaint(string $str[, string ...]) 
