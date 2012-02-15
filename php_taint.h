@@ -41,6 +41,32 @@ extern zend_module_entry taint_module_entry;
 #define PHP_TAINT_MAGIC_POSSIBLE 0x6A8FCE84
 #define PHP_TAINT_MAGIC_UNTAINT  0x2C5E7F2D
 
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
+#  define TAINT_OP1_TYPE(n)         ((n)->op1.op_type)
+#  define TAINT_OP2_TYPE(n)         ((n)->op2.op_type)
+#  define TAINT_OP1_NODE_PTR(n)     (&(n)->op1)
+#  define TAINT_OP2_NODE_PTR(n)     (&(n)->op2)
+#  define TAINT_OP1_VAR(n)          ((n)->op1.u.var)
+#  define TAINT_OP2_VAR(n)          ((n)->op2.u.var)
+#  define TAINT_RESULT_VAR(n)       ((n)->result.u.var)
+#  define TAINT_OP1_CONSTANT_PTR(n) (&(n)->op1.u.constant)
+#  define TAINT_OP2_CONSTANT_PTR(n) (&(n)->op2.u.constant)
+#  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (execute_data->Ts)
+#  define TAINT_RETURN_VALUE_USED(n) (!((&(n)->result)->u.EA.type & EXT_TYPE_UNUSED))
+#else
+#  define TAINT_OP1_TYPE(n)         ((n)->op1_type)
+#  define TAINT_OP2_TYPE(n)         ((n)->op2_type)
+#  define TAINT_OP1_NODE_PTR(n)     ((n)->op1.var)
+#  define TAINT_OP2_NODE_PTR(n)     ((n)->op2.var)
+#  define TAINT_OP1_VAR(n)          ((n)->op1.var)
+#  define TAINT_OP2_VAR(n)          ((n)->op2.var)
+#  define TAINT_RESULT_VAR(n)       ((n)->result.var)
+#  define TAINT_OP1_CONSTANT_PTR(n) ((n)->op1.zv)
+#  define TAINT_OP2_CONSTANT_PTR(n) ((n)->op2.zv)
+#  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (t)
+#  define TAINT_RETURN_VALUE_USED(n) (!((n)->result_type & EXT_TYPE_UNUSED))
+#endif
+
 #define TAINT_T(offset) (*(temp_variable *)((char *) execute_data->Ts + offset))
 #define TAINT_TS(offset) (*(temp_variable *)((char *)Ts + offset))
 #define TAINT_CV(i)     (EG(current_execute_data)->CVs[i])
