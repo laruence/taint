@@ -168,15 +168,7 @@ static zval * php_taint_get_zval_ptr_var(znode *node, temp_variable *Ts, zend_fr
         return ptr;
     }
 } /* }}} */
-#else
-static zval * php_taint_get_zval_ptr_var(zend_uint var, const temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {
-	zval *ptr = TAINT_TS(var).var.ptr;
-	TAINT_PZVAL_UNLOCK(ptr, should_free);
-	return ptr;
-} /* }}} */
-#endif
 
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
 static zval * php_taint_get_zval_ptr_cv(znode *node, temp_variable *Ts TSRMLS_DC) /* {{{ */ {
 	zval ***ptr = &TAINT_CV_OF(node->u.var);
 	if (!*ptr) {
@@ -188,32 +180,11 @@ static zval * php_taint_get_zval_ptr_cv(znode *node, temp_variable *Ts TSRMLS_DC
 	}
 	return **ptr;
 } /* }}} */
-#else
-static zval * php_taint_get_zval_ptr_cv(zend_uint var, int type TSRMLS_DC) /* {{{ */ {
-	zval ***ptr = &TAINT_CV_OF(var);
 
-	if (UNEXPECTED(*ptr == NULL)) {
-		zend_compiled_variable *cv = &TAINT_CV_DEF_OF(var);
-		if (!EG(active_symbol_table) || zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)ptr) == FAILURE) {
-			zend_error(E_NOTICE, "Undefined variable: %s", cv->name);
-			return &EG(uninitialized_zval);
-		}
-	}   
-	return **ptr;
-} /* }}} */
-#endif
-
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
 static zval * php_taint_get_zval_ptr_tmp(znode *node, temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {   
 	return should_free->var = &TAINT_TS(node->u.var).tmp_var;
 } /* }}} */
-#else
-static zval * php_taint_get_zval_ptr_tmp(zend_uint var, const temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {   
-	return should_free->var = &TAINT_TS(var).tmp_var;
-} /* }}} */
-#endif
 
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
 static zval ** php_taint_get_zval_ptr_ptr_var(znode *node, temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {
 	zval** ptr_ptr = TAINT_TS(node->u.var).var.ptr_ptr;
 
@@ -225,21 +196,7 @@ static zval ** php_taint_get_zval_ptr_ptr_var(znode *node, temp_variable *Ts, ze
 	}
 	return ptr_ptr;
 } /* }}} */
-#else
-static zend_always_inline zval ** php_taint_get_zval_ptr_ptr_var(zend_uint var, const temp_variable *Ts, zend_free_op *should_free TSRMLS_DC)/* {{{ */ {
-	zval** ptr_ptr = TAINT_TS(var).var.ptr_ptr;
 
-	if (EXPECTED(ptr_ptr != NULL)) {
-		TAINT_PZVAL_UNLOCK(*ptr_ptr, should_free);
-	} else {
-		/* string offset */
-		TAINT_PZVAL_UNLOCK(TAINT_TS(var).str_offset.str, should_free);
-	}
-	return ptr_ptr;
-} /* }}} */
-#endif
-
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
 static inline zval **php_taint_get_zval_ptr_ptr_cv(znode *node, temp_variable *Ts, int type TSRMLS_DC) /* {{{ */ {
 	zval ***ptr = &TAINT_CV_OF(node->u.var);
 
@@ -265,7 +222,102 @@ static inline zval **php_taint_get_zval_ptr_ptr_cv(znode *node, temp_variable *T
 	}
 	return *ptr;
 } /* }}} */
+
+static zval **php_taint_get_zval_ptr_ptr(znode *node, temp_variable *Ts, zend_free_op *should_free, int type TSRMLS_DC) /* {{{ */ {
+	if (node->op_type == IS_CV) {
+		should_free->var = 0;
+		return php_taint_get_zval_ptr_ptr_cv(node, Ts, type TSRMLS_CC);
+	} else if (node->op_type == IS_VAR) {
+		return php_taint_get_zval_ptr_ptr_var(node, Ts, should_free TSRMLS_CC);
+	} else {
+		should_free->var = 0;
+		return NULL;
+	}
+} /* }}} */
+
+static int php_taint_qm_assign_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
+    zend_op *opline = execute_data->opline;
+	zend_free_op free_op1;
+	zval *op1;
+
+	switch(TAINT_OP1_TYPE(opline)) {
+		case IS_TMP_VAR:
+			op1 = php_taint_get_zval_ptr_tmp(TAINT_OP1_NODE_PTR(opline), execute_data->Ts, &free_op1 TSRMLS_CC);
+			break;
+		case IS_VAR:
+			op1 = php_taint_get_zval_ptr_var(TAINT_OP1_NODE_PTR(opline), execute_data->Ts, &free_op1 TSRMLS_CC);
+			break;
+		case IS_CV:
+			op1 = php_taint_get_zval_ptr_cv(TAINT_OP1_NODE_PTR(opline), TAINT_GET_ZVAL_PTR_CV_2ND_ARG(BP_VAR_R) TSRMLS_CC);
+			break;
+		case IS_CONST:
+	 		op1 = TAINT_OP1_CONSTANT_PTR(opline);
+			break;
+	}
+
+	TAINT_T(TAINT_RESULT_VAR(opline)).tmp_var = *op1;
+
+	if (!((zend_uintptr_t)free_op1.var & 1L)) {
+		zval_copy_ctor(&TAINT_T(TAINT_RESULT_VAR(opline)).tmp_var);
+		if (op1 && IS_STRING == Z_TYPE_P(op1) && PHP_TAINT_POSSIBLE(op1)) {
+			zval *result = &TAINT_T(TAINT_RESULT_VAR(opline)).tmp_var;
+			Z_STRVAL_P(result) = erealloc(Z_STRVAL_P(result), Z_STRLEN_P(result) + 1 + PHP_TAINT_MAGIC_LENGTH);
+			PHP_TAINT_MARK(result, PHP_TAINT_MAGIC_POSSIBLE);
+		}
+	}
+
+	switch (TAINT_OP1_TYPE(opline)) {
+		case IS_TMP_VAR:
+			zval_dtor(free_op1.var);
+			break;
+		case IS_VAR:
+			if (free_op1.var) {
+				zval_ptr_dtor(&free_op1.var);
+			}
+			break;
+	}
+
+	execute_data->opline++;
+
+	return ZEND_USER_OPCODE_CONTINUE;
+} /* }}} */
+
 #else
+static zval * php_taint_get_zval_ptr_var(zend_uint var, const temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {
+	zval *ptr = TAINT_TS(var).var.ptr;
+	TAINT_PZVAL_UNLOCK(ptr, should_free);
+	return ptr;
+} /* }}} */
+
+static zval * php_taint_get_zval_ptr_cv(zend_uint var, int type TSRMLS_DC) /* {{{ */ {
+	zval ***ptr = &TAINT_CV_OF(var);
+
+	if (UNEXPECTED(*ptr == NULL)) {
+		zend_compiled_variable *cv = &TAINT_CV_DEF_OF(var);
+		if (!EG(active_symbol_table) || zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)ptr) == FAILURE) {
+			zend_error(E_NOTICE, "Undefined variable: %s", cv->name);
+			return &EG(uninitialized_zval);
+		}
+	}   
+	return **ptr;
+} /* }}} */
+
+static zval * php_taint_get_zval_ptr_tmp(zend_uint var, const temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {   
+	return should_free->var = &TAINT_TS(var).tmp_var;
+} /* }}} */
+
+static zend_always_inline zval ** php_taint_get_zval_ptr_ptr_var(zend_uint var, const temp_variable *Ts, zend_free_op *should_free TSRMLS_DC)/* {{{ */ {
+	zval** ptr_ptr = TAINT_TS(var).var.ptr_ptr;
+
+	if (EXPECTED(ptr_ptr != NULL)) {
+		TAINT_PZVAL_UNLOCK(*ptr_ptr, should_free);
+	} else {
+		/* string offset */
+		TAINT_PZVAL_UNLOCK(TAINT_TS(var).str_offset.str, should_free);
+	}
+	return ptr_ptr;
+} /* }}} */
+
 static zval ** php_taint_get_zval_ptr_ptr_cv(zend_uint var, int type TSRMLS_DC) /* {{{ */  {
 	zval ***ptr = &TAINT_CV_OF(var);
 
@@ -297,21 +349,7 @@ static zval ** php_taint_get_zval_ptr_ptr_cv(zend_uint var, int type TSRMLS_DC) 
 	}       
 	return *ptr;
 } /* }}} */ 
-#endif
 
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
-static zval **php_taint_get_zval_ptr_ptr(znode *node, temp_variable *Ts, zend_free_op *should_free, int type TSRMLS_DC) /* {{{ */ {
-	if (node->op_type == IS_CV) {
-		should_free->var = 0;
-		return php_taint_get_zval_ptr_ptr_cv(node, Ts, type TSRMLS_CC);
-	} else if (node->op_type == IS_VAR) {
-		return php_taint_get_zval_ptr_ptr_var(node, Ts, should_free TSRMLS_CC);
-	} else {
-		should_free->var = 0;
-		return NULL;
-	}
-} /* }}} */
-#else
 static zval ** php_taint_get_zval_ptr_ptr(int op_type, const znode_op *node, const temp_variable *Ts, zend_free_op *should_free, int type TSRMLS_DC) /* {{{ */ {
 	if (op_type == IS_CV) {
 		should_free->var = 0;
@@ -1039,6 +1077,11 @@ PHP_FUNCTION(is_tainted)
 PHP_MINIT_FUNCTION(taint)
 {
 	REGISTER_INI_ENTRIES();
+
+	if (!TAINT_G(enable)) {
+		return SUCCESS;
+	}
+
 	zend_set_user_opcode_handler(ZEND_ECHO, php_taint_echo_handler);
 	zend_set_user_opcode_handler(ZEND_INCLUDE_OR_EVAL, php_taint_include_or_eval_handler);
 	zend_set_user_opcode_handler(ZEND_PRINT, php_taint_echo_handler);
@@ -1049,6 +1092,9 @@ PHP_MINIT_FUNCTION(taint)
 	zend_set_user_opcode_handler(ZEND_ADD_VAR, php_taint_add_var_handler);
 	zend_set_user_opcode_handler(ZEND_DO_FCALL, php_taint_do_fcall_handler);
 	zend_set_user_opcode_handler(ZEND_DO_FCALL_BY_NAME, php_taint_do_fcall_by_name_handler);
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
+	zend_set_user_opcode_handler(ZEND_QM_ASSIGN, php_taint_qm_assign_handler);
+#endif
 	return SUCCESS;
 }
 /* }}} */
