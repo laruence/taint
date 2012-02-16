@@ -977,7 +977,7 @@ static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 	switch (TAINT_OP2_TYPE(opline)) {
 		case IS_VAR:
-			op2 = TAINT_T(TAINT_OP2_NODE_PTR(opline)).var.ptr_ptr;
+			op2 = TAINT_T(TAINT_OP2_VAR(opline)).var.ptr_ptr;
 			break;
 		case IS_CV: 
 			{
@@ -1000,7 +1000,7 @@ static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 	switch (TAINT_OP1_TYPE(opline)) {
 		case IS_VAR:
-			op1 = TAINT_T(TAINT_OP1_NODE_PTR(opline)).var.ptr_ptr;
+			op1 = TAINT_T(TAINT_OP1_VAR(opline)).var.ptr_ptr;
 			break;
 		case IS_CV:
 			{
