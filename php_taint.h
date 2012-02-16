@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: header 297205 2010-03-30 21:09:07Z johannes $ */
+/* $Id$ */
 
 #ifndef PHP_TAINT_H
 #define PHP_TAINT_H
@@ -34,7 +34,7 @@ extern zend_module_entry taint_module_entry;
 #include "TSRM.h"
 #endif
 
-#define PHP_TAINT_VERSION "0.0.1"
+#define PHP_TAINT_VERSION "0.0.2"
 
 #define PHP_TAINT_MAGIC_LENGTH   sizeof(unsigned)
 #define PHP_TAINT_MAGIC_NONE     0x00000000
