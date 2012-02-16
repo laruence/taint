@@ -185,18 +185,6 @@ static zval * php_taint_get_zval_ptr_tmp(znode *node, temp_variable *Ts, zend_fr
 	return should_free->var = &TAINT_TS(node->u.var).tmp_var;
 } /* }}} */
 
-static zval **php_taint_get_zval_ptr_ptr(znode *node, temp_variable *Ts, zend_free_op *should_free, int type TSRMLS_DC) /* {{{ */ {
-	if (node->op_type == IS_CV) {
-		should_free->var = 0;
-		return php_taint_get_zval_ptr_ptr_cv(node, Ts, type TSRMLS_CC);
-	} else if (node->op_type == IS_VAR) {
-		return php_taint_get_zval_ptr_ptr_var(node, Ts, should_free TSRMLS_CC);
-	} else {
-		should_free->var = 0;
-		return NULL;
-	}
-} /* }}} */
-
 static zval ** php_taint_get_zval_ptr_ptr_var(znode *node, temp_variable *Ts, zend_free_op *should_free TSRMLS_DC) /* {{{ */ {
 	zval** ptr_ptr = TAINT_TS(node->u.var).var.ptr_ptr;
 
@@ -233,6 +221,18 @@ static zval **php_taint_get_zval_ptr_ptr_cv(znode *node, temp_variable *Ts, int 
 		}
 	}
 	return *ptr;
+} /* }}} */
+
+static zval **php_taint_get_zval_ptr_ptr(znode *node, temp_variable *Ts, zend_free_op *should_free, int type TSRMLS_DC) /* {{{ */ {
+	if (node->op_type == IS_CV) {
+		should_free->var = 0;
+		return php_taint_get_zval_ptr_ptr_cv(node, Ts, type TSRMLS_CC);
+	} else if (node->op_type == IS_VAR) {
+		return php_taint_get_zval_ptr_ptr_var(node, Ts, should_free TSRMLS_CC);
+	} else {
+		should_free->var = 0;
+		return NULL;
+	}
 } /* }}} */
 
 static int php_taint_qm_assign_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
