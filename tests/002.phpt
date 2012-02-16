@@ -13,13 +13,7 @@ print $a;
 $a .= '+';
 $sql = "select * from {$a}";
 file_put_contents("php://output", $a . "\n");
-
-if (function_exists("mysql_query")) {
-   mysql_query($sql);
-} else {
-   function mysql_query() {}
-   mysql_query($sql);
-}
+eval("return '$a';");
 ?>
 --EXPECTF--
 Warning: main(): Attempt to print a string which might be tainted in %s002.php on line %d
@@ -27,4 +21,4 @@ tainted string.
 Warning: file_put_contents(): Second argument contains data that might be tainted in %s002.php on line %d
 tainted string.+
 
-Warning: mysql_query(): First argument contains data that might be tainted in %s002.php on line %d 
+Warning: eval(): eval code contains data that might be tainted in %s002.php on line %d

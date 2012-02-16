@@ -386,6 +386,11 @@ static int php_taint_echo_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 				zval **t = TAINT_CV_OF(TAINT_OP1_VAR(opline));
 				if (t && *t) {
 					op1 = *t;
+				} else if (EG(active_symbol_table)) {
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
+						op1 = *t;
+					}
 				}
 		    } 
 			break;
@@ -419,6 +424,11 @@ static int php_taint_include_or_eval_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */
 				zval **t = TAINT_CV_OF(TAINT_OP1_VAR(opline));
 				if (t && *t) {
 					op1 = *t;
+				} else if (EG(active_symbol_table)) {
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
+						op1 = *t;
+					}
 				}
 		    } 
 			break;
@@ -845,7 +855,7 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION > 3) 
 		void **p = EG(argument_stack)->top;
 #elif (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION > 2) 
-	    void **p = EG(argument_stack)->top - 1;
+	    void **p = EG(argument_stack)->top;
 #else
 		void **p = EG(argument_stack).top_element;
 #endif
@@ -879,6 +889,7 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 				   || strncmp("fwrite", fname, len) == 0) {
 				if (arg_count) {
 					zval *fp, *str;
+
 					fp = *((zval **) (p - (arg_count)));
 					str = *((zval **) (p - (arg_count - 1)));
 
