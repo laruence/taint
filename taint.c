@@ -237,8 +237,8 @@ static zval **php_taint_get_zval_ptr_ptr(znode *node, temp_variable *Ts, zend_fr
 
 static int php_taint_qm_assign_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
-	zend_free_op free_op1;
-	zval *op1;
+	zval *op1 = NULL;
+	zend_free_op free_op1 = {0};
 
 	switch(TAINT_OP1_TYPE(opline)) {
 		case IS_TMP_VAR:
@@ -251,7 +251,7 @@ static int php_taint_qm_assign_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 			op1 = php_taint_get_zval_ptr_cv(TAINT_OP1_NODE_PTR(opline), TAINT_GET_ZVAL_PTR_CV_2ND_ARG(BP_VAR_R) TSRMLS_CC);
 			break;
 		case IS_CONST:
-	 		op1 = TAINT_OP1_CONSTANT_PTR(opline);
+			op1 = TAINT_OP1_CONSTANT_PTR(opline);
 			break;
 	}
 

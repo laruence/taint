@@ -11,7 +11,12 @@ taint($a); //must use concat to make the string not a internal string(introduced
 
 $b = isset($a)? $a : 0;
 echo $b;
+
+$b .= isset($a)? "xxxx" : 0;
+echo $b;
 ?>
 --EXPECTF--
 Warning: main(): Attempt to echo a string which might be tainted in %s003.php on line %d
 tainted string.
+Warning: main(): Attempt to echo a string which might be tainted in %s003.php on line %d
+tainted string.xxxx
