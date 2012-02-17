@@ -443,19 +443,19 @@ static int php_taint_include_or_eval_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */
 		switch (opline->extended_value) {
 #endif
 			case ZEND_INCLUDE_ONCE:
-				php_taint_error("function.include_once" TSRMLS_CC, "File path contains data that might be tainted");
+				php_taint_error("function.include_once" TSRMLS_CC, "File path contains data which might be tainted");
 				break;
 			case ZEND_REQUIRE_ONCE: 
-				php_taint_error("function.require_once" TSRMLS_CC, "File path contains data that might be tainted");
+				php_taint_error("function.require_once" TSRMLS_CC, "File path contains data which might be tainted");
 				break;
 			case ZEND_INCLUDE:
-				php_taint_error("function.include" TSRMLS_CC, "File path contains data that might be tainted");
+				php_taint_error("function.include" TSRMLS_CC, "File path contains data which might be tainted");
 				break;
 			case ZEND_REQUIRE: 
-				php_taint_error("function.require" TSRMLS_CC, "File path contains data that might be tainted");
+				php_taint_error("function.require" TSRMLS_CC, "File path contains data which might be tainted");
 				break;
 			case ZEND_EVAL:
-				php_taint_error("function.eval" TSRMLS_CC, "eval code contains data that might be tainted");
+				php_taint_error("function.eval" TSRMLS_CC, "eval code contains data which might be tainted");
 				break;
 		}
 
@@ -875,9 +875,60 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 				   || strncmp("file", fname, len) == 0 ) {
 				if (arg_count) {
 					zval *el;
-					el = *((zval **) (p - (arg_count)));
+					el = *((zval **) (p - arg_count));
 					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error(NULL TSRMLS_CC, "First argument contains data that might be tainted");
+						php_taint_error(NULL TSRMLS_CC, "First argument contains data which might be tainted");
+					}
+				}
+				break;
+			}
+
+			if (strncmp("printf", fname, len) == 0
+					|| strncmp("sprintf", fname, len) == 0) {
+				if (arg_count) {
+					zval *el;
+					uint i;
+					for (i=0;i<arg_count;i++) {
+						el = *((zval **) (p - (arg_count - i)));
+						if (el && IS_STRING == Z_TYPE_P(el) && Z_STRLEN_P(el) && PHP_TAINT_POSSIBLE(el)) {
+							php_taint_error(NULL TSRMLS_CC, "%dth argument contains data which might be tainted", i + 1);
+							break;
+						}
+					}
+				}
+				break;
+			}
+
+			if (strncmp("vprintf", fname, len) == 0
+					|| strncmp("vsprintf", fname, len) == 0) {
+				if (arg_count) {
+					HashTable *ht;
+					zval **ppzval, *el = *((zval **) ( p - (arg_count - 1)));
+					if (!el || IS_ARRAY != Z_TYPE_P(el) || zend_hash_num_elements(Z_ARRVAL_P(el))) {
+						break;
+					}
+
+					ht = Z_ARRVAL_P(el);
+					for(zend_hash_internal_pointer_reset(ht);
+							zend_hash_has_more_elements(ht) == SUCCESS;
+							zend_hash_move_forward(ht)) {
+						if (zend_hash_get_current_data(ht, (void**)&ppzval) == FAILURE) {
+							continue;
+						}
+
+						if (IS_STRING == Z_TYPE_PP(ppzval) && Z_STRLEN_PP(ppzval) && PHP_TAINT_POSSIBLE(*ppzval)) {
+							char *key;
+							long idx;
+							switch (zend_hash_get_current_key(ht, &key, &idx, 0)) {
+								case HASH_KEY_IS_STRING:
+									php_taint_error(NULL TSRMLS_CC, "Second argument contains data(index:%s) which might be tainted", key);
+									break;
+								case HASH_KEY_IS_LONG:
+									php_taint_error(NULL TSRMLS_CC, "Second argument contains data(index:%ld) which might be tainted", idx);
+									break;
+							}
+							break;
+						}
 					}
 				}
 				break;
@@ -888,7 +939,7 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 				if (arg_count) {
 					zval *fp, *str;
 
-					fp = *((zval **) (p - (arg_count)));
+					fp = *((zval **) (p - arg_count));
 					str = *((zval **) (p - (arg_count - 1)));
 
 					if (fp && IS_RESOURCE == Z_TYPE_P(fp)) {
@@ -899,7 +950,7 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 						}
 					}
 					if (str && IS_STRING == Z_TYPE_P(str) && PHP_TAINT_POSSIBLE(str)) {
-						php_taint_error(NULL TSRMLS_CC, "Second argument contains data that might be tainted");
+						php_taint_error(NULL TSRMLS_CC, "Second argument contains data which might be tainted");
 					}
 				}
 				break;

@@ -18,7 +18,7 @@ eval("return '$a';");
 --EXPECTF--
 Warning: main(): Attempt to print a string which might be tainted in %s002.php on line %d
 tainted string.
-Warning: file_put_contents(): Second argument contains data that might be tainted in %s002.php on line %d
+Warning: file_put_contents(): Second argument contains data which might be tainted in %s002.php on line %d
 tainted string.+
 
-Warning: eval(): eval code contains data that might be tainted in %s002.php on line %d
+Warning: eval(): eval code contains data which might be tainted in %s002.php on line %d
