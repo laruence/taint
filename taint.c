@@ -966,10 +966,45 @@ static int php_taint_do_fcall_by_name_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ *
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
+static int php_taint_assign_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
+    zend_op *opline = execute_data->opline;
+	zval **op2 = NULL;
+
+	switch (TAINT_OP2_TYPE(opline)) {
+		case IS_CV: 
+			{
+				zval **t = TAINT_CV_OF(TAINT_OP2_VAR(opline));
+				if (t && *t) {
+					op2 = t;
+				} else if (EG(active_symbol_table)) {
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
+						op2 = t;
+					}
+				}
+			}
+			break;
+		defaut:
+			return ZEND_USER_OPCODE_DISPATCH;
+			break;
+	}
+
+	if (!op2 || *op2 == &EG(error_zval) || Z_TYPE_PP(op2) != IS_STRING || !Z_STRLEN_PP(op2) || !PHP_TAINT_POSSIBLE(*op2)) {
+		return ZEND_USER_OPCODE_DISPATCH;
+	}
+
+	if (PZVAL_IS_REF(*op2) && Z_REFCOUNT_PP(op2) > 1) {
+		SEPARATE_ZVAL(op2);
+		Z_STRVAL_PP(op2) = erealloc(Z_STRVAL_PP(op2), Z_STRLEN_PP(op2) + 1 + PHP_TAINT_MAGIC_LENGTH);
+		PHP_TAINT_MARK(*op2, PHP_TAINT_MAGIC_POSSIBLE);
+	}
+
+	return ZEND_USER_OPCODE_DISPATCH;
+} /* }}} */
+
 static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
 	zval **op1 = NULL, **op2 = NULL;
-	zend_free_op free_op1, free_op2;
 
 	if (opline->extended_value == ZEND_RETURNS_FUNCTION && TAINT_OP2_TYPE(opline) == IS_VAR) {
 		return ZEND_USER_OPCODE_DISPATCH;
@@ -1022,8 +1057,9 @@ static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 	}
 
 	if (!op1 || *op1 != *op2) {
-		zval *old = *op2;
-		/* @FIXME memory leak */
+		if (IS_CV == TAINT_OP2_TYPE(opline)) {
+			/* @FIXME memory leak */
+		}
 		SEPARATE_ZVAL_IF_NOT_REF(op2);
 		Z_STRVAL_PP(op2) = erealloc(Z_STRVAL_PP(op2), Z_STRLEN_PP(op2) + 1 + PHP_TAINT_MAGIC_LENGTH);
 		PHP_TAINT_MARK(*op2, PHP_TAINT_MAGIC_POSSIBLE);
@@ -1169,6 +1205,7 @@ PHP_MINIT_FUNCTION(taint)
 	zend_set_user_opcode_handler(ZEND_DO_FCALL, php_taint_do_fcall_handler);
 	zend_set_user_opcode_handler(ZEND_DO_FCALL_BY_NAME, php_taint_do_fcall_by_name_handler);
 	zend_set_user_opcode_handler(ZEND_ASSIGN_REF, php_taint_assign_ref_handler);
+	zend_set_user_opcode_handler(ZEND_ASSIGN, php_taint_assign_handler);
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
 	zend_set_user_opcode_handler(ZEND_QM_ASSIGN, php_taint_qm_assign_handler);
 #endif
