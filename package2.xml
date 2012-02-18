@@ -10,11 +10,11 @@
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2012-02-16</date>
- <time>16:28:18</time>
+ <date>2012-02-18</date>
+ <time>21:05:17</time>
  <version>
-  <release>0.0.2</release>
-  <api>0.0.2</api>
+  <release>0.3.0</release>
+  <api>0.3.0</api>
  </version>
  <stability>
   <release>beta</release>
@@ -22,10 +22,9 @@
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
  <notes>
-   - Fixed bug that MINIT din't respect taint.enable
-   - Fixed bug that Taint doesn't work with eval
-   - Fixed bug that Taint works wrongly with php 5.3(function arguments)
-   - Support ternary 
+   - Taint result of sprintf/vsprintf instead of trigger warnings.
+   - Taint result of explode/implode if the input is tained.
+   - Taint result of strval if the input is tainted
  </notes>
  <contents> 
   <dir name="/"> 
@@ -40,6 +39,9 @@
     <file name="002.phpt" role="test" />
     <file name="003.phpt" role="test" />
     <file name="004.phpt" role="test" />
+    <file name="005.phpt" role="test" />
+    <file name="006.phpt" role="test" />
+    <file name="007.phpt" role="test" />
    </dir>
   </dir> 
  </contents> 
@@ -58,7 +60,59 @@
  <extsrcrelease />
  <changelog> 
   <release> 
+   <date>2012-02-18</date> 
+   <version> 
+    <release>0.2.0</release> 
+    <api>0.2.0</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+   - Support separation caused by send_ref
+   - Support separation caused by send_var
+   - Support checking for method
+   - Support more functions (sqlite, oci, etc)
+   </notes> 
+  </release> 
+
+  <release> 
+   <date>2012-02-17</date> 
+   <version> 
+    <release>0.1.0</release> 
+    <api>0.1.0</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+   - Support reference separation
+   </notes> 
+  </release> 
+  <release> 
    <date>2012-02-16</date> 
+   <version> 
+    <release>0.0.2</release> 
+    <api>0.0.2</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+   - Fixed bug that MINIT din't respect taint.enable
+   - Fixed bug that Taint doesn't work with eval
+   - Fixed bug that Taint works wrongly with php 5.3(function arguments)
+   - Support ternary 
+   </notes> 
+  </release> 
+  <release> 
+   <date>2012-02-15</date> 
    <version> 
     <release>0.0.1</release> 
     <api>0.0.1</api> 

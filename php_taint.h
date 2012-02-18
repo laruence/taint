@@ -34,7 +34,7 @@ extern zend_module_entry taint_module_entry;
 #include "TSRM.h"
 #endif
 
-#define PHP_TAINT_VERSION "0.0.2"
+#define PHP_TAINT_VERSION "0.3.0"
 
 #define PHP_TAINT_MAGIC_LENGTH   sizeof(unsigned)
 #define PHP_TAINT_MAGIC_NONE     0x00000000
@@ -53,9 +53,7 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_OP2_CONSTANT_PTR(n) (&(n)->op2.u.constant)
 #  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (execute_data->Ts)
 #  define TAINT_RETURN_VALUE_USED(n) (!((&(n)->result)->u.EA.type & EXT_TYPE_UNUSED))
-#  ifndef Z_SET_ISREF_PP
-#    define Z_SET_ISREF_PP(n) ((*n)->is_ref = 1)
-#  endif
+#  define TAINT_OP_LINENUM(n)       ((n).u.opline_num)
 #else
 #  define TAINT_OP1_TYPE(n)         ((n)->op1_type)
 #  define TAINT_OP2_TYPE(n)         ((n)->op2_type)
@@ -68,6 +66,17 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_OP2_CONSTANT_PTR(n) ((n)->op2.zv)
 #  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (t)
 #  define TAINT_RETURN_VALUE_USED(n) (!((n)->result_type & EXT_TYPE_UNUSED))
+#  define TAINT_OP_LINENUM(n)       ((n).opline_num)
+#endif
+
+#ifndef Z_SET_ISREF_PP
+#  define Z_SET_ISREF_PP(n) ((*n)->is_ref = 1)
+#endif
+#ifndef Z_UNSET_ISREF_PP
+#  define Z_UNSET_ISREF_PP(n)  ((*n)->is_ref = 0)
+#endif
+#ifndef Z_REFCOUNT_PP
+#  define Z_REFCOUNT_PP(n)  ((*n)->refcount)
 #endif
 
 #define TAINT_T(offset) (*(temp_variable *)((char *) execute_data->Ts + offset))
@@ -108,6 +117,20 @@ PHP_MINFO_FUNCTION(taint);
 PHP_FUNCTION(taint);
 PHP_FUNCTION(untaint);
 PHP_FUNCTION(is_tainted);
+
+PHP_FUNCTION(taint_strval);
+PHP_FUNCTION(taint_sprintf);
+PHP_FUNCTION(taint_vsprintf);
+PHP_FUNCTION(taint_explode);
+PHP_FUNCTION(taint_implode);
+
+extern PHP_FUNCTION(strval);
+extern PHP_FUNCTION(user_sprintf);
+extern PHP_FUNCTION(vsprintf);
+extern PHP_FUNCTION(explode);
+extern PHP_FUNCTION(implode);
+
+typedef void (*php_func)(INTERNAL_FUNCTION_PARAMETERS);
 
 ZEND_BEGIN_MODULE_GLOBALS(taint)
 	zend_bool enable;

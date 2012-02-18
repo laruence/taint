@@ -87,6 +87,11 @@ static void php_taint_mark_strings(zval *symbol_table TSRMLS_DC) /* {{{ */ {
 	zval **ppzval;
 	HashTable *ht = Z_ARRVAL_P(symbol_table);
 
+	if (++ht->nApplyCount > 1) {
+		ht->nApplyCount--;
+		return;
+	}
+
 	for(zend_hash_internal_pointer_reset(ht);
 			zend_hash_has_more_elements(ht) == SUCCESS;
 			zend_hash_move_forward(ht)) {
@@ -398,9 +403,9 @@ static int php_taint_echo_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 	if (op1 && IS_STRING == Z_TYPE_P(op1) && PHP_TAINT_POSSIBLE(op1)) {
 		if (ZEND_ECHO == opline->opcode) {
-			php_taint_error("function.echo" TSRMLS_CC, "Attempt to echo a string which might be tainted");
+			php_taint_error("function.echo" TSRMLS_CC, "Attempt to echo a string that might be tainted");
 		} else {
-			php_taint_error("function.echo" TSRMLS_CC, "Attempt to print a string which might be tainted");
+			php_taint_error("function.echo" TSRMLS_CC, "Attempt to print a string that might be tainted");
 		}
 	}
 
@@ -409,8 +414,8 @@ static int php_taint_echo_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 static int php_taint_include_or_eval_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
-	zval *op1 = NULL, *op2 = NULL, *result;
-	zend_free_op free_op1, free_op2;
+	zval *op1 = NULL;
+	zend_free_op free_op1;
 
 	switch(TAINT_OP1_TYPE(opline)) {
 		case IS_TMP_VAR:
@@ -443,19 +448,19 @@ static int php_taint_include_or_eval_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */
 		switch (opline->extended_value) {
 #endif
 			case ZEND_INCLUDE_ONCE:
-				php_taint_error("function.include_once" TSRMLS_CC, "File path contains data which might be tainted");
+				php_taint_error("function.include_once" TSRMLS_CC, "File path contains data that might be tainted");
 				break;
 			case ZEND_REQUIRE_ONCE: 
-				php_taint_error("function.require_once" TSRMLS_CC, "File path contains data which might be tainted");
+				php_taint_error("function.require_once" TSRMLS_CC, "File path contains data that might be tainted");
 				break;
 			case ZEND_INCLUDE:
-				php_taint_error("function.include" TSRMLS_CC, "File path contains data which might be tainted");
+				php_taint_error("function.include" TSRMLS_CC, "File path contains data that might be tainted");
 				break;
 			case ZEND_REQUIRE: 
-				php_taint_error("function.require" TSRMLS_CC, "File path contains data which might be tainted");
+				php_taint_error("function.require" TSRMLS_CC, "File path contains data that might be tainted");
 				break;
 			case ZEND_EVAL:
-				php_taint_error("function.eval" TSRMLS_CC, "eval code contains data which might be tainted");
+				php_taint_error("function.eval" TSRMLS_CC, "Eval code contains data that might be tainted");
 				break;
 		}
 
@@ -540,7 +545,7 @@ static int php_taint_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 static int php_taint_assign_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
-	zval *op2 = NULL, **var_ptr = NULL, *result;
+	zval *op2 = NULL, **var_ptr = NULL;
 	zend_free_op free_op1, free_op2;
 	uint tainted = 0;
 
@@ -630,8 +635,8 @@ static int php_taint_assign_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 static int php_taint_add_string_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
-	zval *op1 = NULL, *op2 = NULL, *result;
-	zend_free_op free_op1, free_op2;
+	zval *op1 = NULL, *result;
+	zend_free_op free_op1;
 	uint tainted = 0;
 
 	result = &TAINT_T(TAINT_RESULT_VAR(opline)).tmp_var;
@@ -687,8 +692,8 @@ static int php_taint_add_string_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 static int php_taint_add_char_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
-	zval *op1 = NULL, *op2 = NULL, *result;
-	zend_free_op free_op1, free_op2;
+	zval *op1 = NULL, *result;
+	zend_free_op free_op1;
 	uint tainted = 0;
 
 	result = &TAINT_T(TAINT_RESULT_VAR(opline)).tmp_var;
@@ -848,6 +853,75 @@ static int php_taint_add_var_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 	return ZEND_USER_OPCODE_CONTINUE;
 } /* }}} */
 
+static void php_taint_mcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, zend_class_entry *scope, char *fname, int len) /* {{{ */ {
+	if (scope && fname) {
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION > 3) 
+		void **p = EG(argument_stack)->top;
+#elif (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION > 2) 
+	    void **p = EG(argument_stack)->top;
+#else
+		void **p = EG(argument_stack).top_element;
+#endif
+		int arg_count = opline->extended_value;
+		char *class_name = scope->name;
+		uint cname_len = scope->name_length;
+
+		if (!arg_count) {
+			return;
+		}
+
+		do { 
+			if (strncmp("mysqli", class_name, cname_len) == 0) {
+				if (strncmp("query", fname, len) == 0) {
+					zval *el;
+					el = *((zval **) (p - arg_count));
+					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
+						php_taint_error(NULL TSRMLS_CC, "SQL statement contains data that might be tainted");
+					}
+				} else if (strncmp("escape_string", fname, len) == 0
+						|| strncmp("real_escape_string", fname, len) == 0 ) {
+					zval *el;
+					el = *((zval **) (p - (arg_count)));
+					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
+						PHP_TAINT_MARK(el, PHP_TAINT_MAGIC_NONE);
+					}
+				}
+				break;
+			}
+			
+			if (strncmp("sqlitedatabase", class_name, cname_len) == 0) {
+				if (strncmp("query", fname, len) == 0
+						|| strncmp("singlequery", fname, len) == 0) {
+					zval *el;
+					el = *((zval **) (p - arg_count));
+					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
+						php_taint_error(NULL TSRMLS_CC, "SQL statement contains data that might be tainted");
+					}
+				}
+				break;
+			}
+
+			if (strncmp("pdo", class_name, cname_len) == 0) {
+				if (strncmp("query", fname, len) == 0
+						|| strncmp("prepare", fname, len) == 0) {
+					zval *el;
+					el = *((zval **) (p - arg_count));
+					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
+						php_taint_error(NULL TSRMLS_CC, "SQL statement contains data that might be tainted");
+					}
+				} else if (strncmp("quote", fname, len) == 0) {
+					zval *el;
+					el = *((zval **) (p - (arg_count)));
+					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
+						PHP_TAINT_MARK(el, PHP_TAINT_MAGIC_NONE);
+					}
+				}
+				break;
+			}
+		} while (0);
+	}
+} /* }}} */
+
 static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, char *fname, int len) /* {{{ */ {
 	if (fname) {
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION > 3) 
@@ -858,40 +932,35 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 		void **p = EG(argument_stack).top_element;
 #endif
 		int arg_count = opline->extended_value;
+
+		if (!arg_count) {
+			return;
+		}
+
 		do { 
 			if (strncmp("print_r", fname, len) == 0
-				   || strncmp("passthru", fname, len) == 0
-				   || strncmp("system", fname, len) == 0
-				   || strncmp("exec", fname, len) == 0
-				   || strncmp("shell_exec", fname, len) == 0
-				   || strncmp("proc_open", fname, len) == 0
-				   || strncmp("mysqli_query", fname, len) == 0
-				   || strncmp("mysql_query", fname, len) == 0 
-				   || strncmp("fopen", fname, len) == 0
-				   || strncmp("opendir", fname, len) == 0
-				   || strncmp("dirname", fname, len) == 0
-				   || strncmp("basename", fname, len) == 0
-				   || strncmp("pathinfo", fname, len) == 0
-				   || strncmp("file", fname, len) == 0 ) {
-				if (arg_count) {
-					zval *el;
-					el = *((zval **) (p - arg_count));
-					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						php_taint_error(NULL TSRMLS_CC, "First argument contains data which might be tainted");
-					}
+					|| strncmp("fopen", fname, len) == 0
+					|| strncmp("opendir", fname, len) == 0
+					|| strncmp("dirname", fname, len) == 0
+					|| strncmp("basename", fname, len) == 0
+					|| strncmp("pathinfo", fname, len) == 0
+					|| strncmp("file", fname, len) == 0 ) {
+				zval *el;
+				el = *((zval **) (p - arg_count));
+				if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
+					php_taint_error(NULL TSRMLS_CC, "First argument contains data that might be tainted");
 				}
 				break;
 			}
 
-			if (strncmp("printf", fname, len) == 0
-					|| strncmp("sprintf", fname, len) == 0) {
-				if (arg_count) {
+			if (strncmp("printf", fname, len) == 0) {
+				if (arg_count > 1) {
 					zval *el;
 					uint i;
 					for (i=0;i<arg_count;i++) {
 						el = *((zval **) (p - (arg_count - i)));
 						if (el && IS_STRING == Z_TYPE_P(el) && Z_STRLEN_P(el) && PHP_TAINT_POSSIBLE(el)) {
-							php_taint_error(NULL TSRMLS_CC, "%dth argument contains data which might be tainted", i + 1);
+							php_taint_error(NULL TSRMLS_CC, "%dth argument contains data that might be tainted", i + 1);
 							break;
 						}
 					}
@@ -899,9 +968,8 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 				break;
 			}
 
-			if (strncmp("vprintf", fname, len) == 0
-					|| strncmp("vsprintf", fname, len) == 0) {
-				if (arg_count) {
+			if (strncmp("vprintf", fname, len) == 0) {
+				if (arg_count > 1) {
 					HashTable *ht;
 					zval **ppzval, *el = *((zval **) ( p - (arg_count - 1)));
 					if (!el || IS_ARRAY != Z_TYPE_P(el) || zend_hash_num_elements(Z_ARRVAL_P(el))) {
@@ -921,10 +989,10 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 							long idx;
 							switch (zend_hash_get_current_key(ht, &key, &idx, 0)) {
 								case HASH_KEY_IS_STRING:
-									php_taint_error(NULL TSRMLS_CC, "Second argument contains data(index:%s) which might be tainted", key);
+									php_taint_error(NULL TSRMLS_CC, "Second argument contains data(index:%s) that might be tainted", key);
 									break;
 								case HASH_KEY_IS_LONG:
-									php_taint_error(NULL TSRMLS_CC, "Second argument contains data(index:%ld) which might be tainted", idx);
+									php_taint_error(NULL TSRMLS_CC, "Second argument contains data(index:%ld) that might be tainted", idx);
 									break;
 							}
 							break;
@@ -936,7 +1004,7 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 
 			if (strncmp("file_put_contents", fname, len) == 0
 				   || strncmp("fwrite", fname, len) == 0) {
-				if (arg_count) {
+				if (arg_count > 1) {
 					zval *fp, *str;
 
 					fp = *((zval **) (p - arg_count));
@@ -950,8 +1018,43 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 						}
 					}
 					if (str && IS_STRING == Z_TYPE_P(str) && PHP_TAINT_POSSIBLE(str)) {
-						php_taint_error(NULL TSRMLS_CC, "Second argument contains data which might be tainted");
+						php_taint_error(NULL TSRMLS_CC, "Second argument contains data that might be tainted");
 					}
+				}
+				break;
+			}
+
+			if (strncmp("mysqli_query", fname, len) == 0
+					|| strncmp("mysql_query", fname, len) == 0 
+					|| strncmp("sqlite_query", fname, len) == 0 
+					|| strncmp("sqlite_single_query", fname, len) == 0 ) {
+				zval *el;
+				el = *((zval **) (p - arg_count));
+				if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
+					php_taint_error(NULL TSRMLS_CC, "SQL statement contains data that might be tainted");
+				}
+				break;
+			}
+
+			if (strncmp("oci_parse", fname, len) == 0) {
+				if (arg_count > 1) {
+					zval *sql = *((zval **) (p - (arg_count - 1)));
+					if (sql && IS_STRING == Z_TYPE_P(sql) && PHP_TAINT_POSSIBLE(sql)) {
+						php_taint_error(NULL TSRMLS_CC, "SQL statement contains data that might be tainted");
+					}
+				}
+				break;
+			}
+			
+			if (strncmp("passthru", fname, len) == 0
+					|| strncmp("system", fname, len) == 0
+					|| strncmp("exec", fname, len) == 0
+					|| strncmp("shell_exec", fname, len) == 0
+					|| strncmp("proc_open", fname, len) == 0 ) {
+				zval *el;
+				el = *((zval **) (p - arg_count));
+				if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
+					php_taint_error(NULL TSRMLS_CC, "CMD statement contains data that might be tainted");
 				}
 				break;
 			}
@@ -963,13 +1066,12 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 					|| strncmp("addslashes", fname, len) == 0 
 					|| strncmp("mysqli_escape_string", fname, len) == 0 
 					|| strncmp("mysql_real_escape_string", fname, len) == 0 
-					|| strncmp("mysql_escape_string", fname, len) == 0) {
-				if (arg_count) {
-					zval *el;
-					el = *((zval **) (p - (arg_count)));
-					if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
-						PHP_TAINT_MARK(el, PHP_TAINT_MAGIC_NONE);
-					}
+					|| strncmp("mysql_escape_string", fname, len) == 0
+					|| strncmp("sqlite_escape_string", fname, len) == 0) {
+				zval *el;
+				el = *((zval **) (p - (arg_count)));
+				if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
+					PHP_TAINT_MARK(el, PHP_TAINT_MAGIC_NONE);
 				}
 				break;
 			}
@@ -984,13 +1086,23 @@ static int php_taint_do_fcall_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
 	zend_function *old_func = EG(function_state_ptr)->function;
 	if (zend_hash_find(EG(function_table), fname->value.str.val, fname->value.str.len+1, (void **)&EG(function_state_ptr)->function) == SUCCESS) {
-		php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, Z_STRVAL_P(fname), Z_STRLEN_P(fname));
+		if (EG(function_state_ptr)->function->common.scope) {
+			zend_class_entry *scope = EG(function_state_ptr)->function->common.scope;
+			php_taint_mcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, scope, Z_STRVAL_P(fname), Z_STRLEN_P(fname));
+		} else {
+			php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, Z_STRVAL_P(fname), Z_STRLEN_P(fname));
+		}
 	}
 	EG(function_state_ptr)->function = old_func;
 #else
 	zend_function *old_func = EG(current_execute_data)->function_state.function;
 	if (zend_hash_find(EG(function_table), fname->value.str.val, fname->value.str.len+1, (void **)&EG(current_execute_data)->function_state.function) == SUCCESS) {
-		php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, Z_STRVAL_P(fname), Z_STRLEN_P(fname));
+		if (EG(current_execute_data)->function_state.function->common.scope) {
+			zend_class_entry *scope = EG(current_execute_data)->function_state.function->common.scope;
+			php_taint_mcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, scope, Z_STRVAL_P(fname), Z_STRLEN_P(fname));
+		} else {
+			php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, Z_STRVAL_P(fname), Z_STRLEN_P(fname));
+		}
 	}
 	EG(current_execute_data)->function_state.function = old_func;
 #endif
@@ -1000,17 +1112,26 @@ static int php_taint_do_fcall_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 static int php_taint_do_fcall_by_name_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
+	zend_class_entry *scope = execute_data->fbc->common.scope;
 	char *fname = (char *)(execute_data->fbc->common.function_name);
 
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
 	zend_function *old_func = EG(function_state_ptr)->function;
 	EG(function_state_ptr)->function = execute_data->fbc;
-	php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, fname, strlen(fname));
+	if (scope) {
+		php_taint_mcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, scope, fname, strlen(fname));
+	} else {
+		php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, fname, strlen(fname));
+	}
 	EG(function_state_ptr)->function = old_func;
 #else
 	zend_function *old_func = EG(current_execute_data)->function_state.function;
 	EG(current_execute_data)->function_state.function = execute_data->fbc;
-	php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, fname, strlen(fname));
+	if (scope) {
+		php_taint_mcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, scope, fname, strlen(fname));
+	} else {
+		php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU, opline, fname, strlen(fname));
+	}
 	EG(current_execute_data)->function_state.function = old_func;
 #endif
 
@@ -1035,7 +1156,7 @@ static int php_taint_assign_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 				}
 			}
 			break;
-		defaut:
+		default:
 			return ZEND_USER_OPCODE_DISPATCH;
 			break;
 	}
@@ -1120,9 +1241,325 @@ static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
+static int php_taint_send_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
+    zend_op *opline = execute_data->opline;
+	zval **op1 = NULL;
+
+	switch (TAINT_OP1_TYPE(opline)) {
+		case IS_VAR:
+			op1 = TAINT_T(TAINT_OP1_VAR(opline)).var.ptr_ptr;
+			break;
+		case IS_CV: 
+			{
+				zval **t = TAINT_CV_OF(TAINT_OP1_VAR(opline));
+				if (t && *t) {
+					op1 = t;
+				} else if (EG(active_symbol_table)) {
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
+						op1 = t;
+					}
+				}
+			}
+			break;
+		default:
+			return ZEND_USER_OPCODE_DISPATCH;
+			break;
+	}
+
+	if (!op1 || *op1 == &EG(error_zval) || Z_REFCOUNT_PP(op1) < 2
+			|| Z_TYPE_PP(op1) != IS_STRING || !Z_STRLEN_PP(op1) || !PHP_TAINT_POSSIBLE(*op1)) {
+		return ZEND_USER_OPCODE_DISPATCH;
+	}
+
+	if (IS_CV == TAINT_OP1_TYPE(opline)) {
+		/* @FIXME memory leak */
+	}
+
+	SEPARATE_ZVAL(op1);
+	Z_STRVAL_PP(op1) = erealloc(Z_STRVAL_PP(op1), Z_STRLEN_PP(op1) + 1 + PHP_TAINT_MAGIC_LENGTH);
+	PHP_TAINT_MARK(*op1, PHP_TAINT_MAGIC_POSSIBLE);
+	Z_UNSET_ISREF_PP(op1);
+
+	return ZEND_USER_OPCODE_DISPATCH;
+} /* }}} */
+
+static int php_taint_send_var_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
+    zend_op *opline = execute_data->opline;
+	zval **op1 = NULL;
+
+	if ((opline->extended_value == ZEND_DO_FCALL_BY_NAME)
+			&& ARG_SHOULD_BE_SENT_BY_REF(execute_data->fbc, TAINT_OP_LINENUM(opline->op2))) {
+		return php_taint_send_ref_handler(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);
+	}
+
+	switch (TAINT_OP1_TYPE(opline)) {
+		case IS_VAR:
+			op1 = TAINT_T(TAINT_OP1_VAR(opline)).var.ptr_ptr;
+			break;
+		case IS_CV: 
+			{
+				zval **t = TAINT_CV_OF(TAINT_OP1_VAR(opline));
+				if (t && *t) {
+					op1 = t;
+				} else if (EG(active_symbol_table)) {
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
+						op1 = t;
+					}
+				}
+			}
+			break;
+		default:
+			return ZEND_USER_OPCODE_DISPATCH;
+			break;
+	}
+
+	if (!op1 || *op1 == &EG(error_zval) || !PZVAL_IS_REF(*op1) || Z_REFCOUNT_PP(op1) < 2
+			|| Z_TYPE_PP(op1) != IS_STRING || !Z_STRLEN_PP(op1) || !PHP_TAINT_POSSIBLE(*op1)) {
+		return ZEND_USER_OPCODE_DISPATCH;
+	}
+
+	if (IS_CV == TAINT_OP1_TYPE(opline)) {
+		/* @FIXME memory leak */
+	}
+
+	SEPARATE_ZVAL(op1);
+	Z_STRVAL_PP(op1) = erealloc(Z_STRVAL_PP(op1), Z_STRLEN_PP(op1) + 1 + PHP_TAINT_MAGIC_LENGTH);
+	PHP_TAINT_MARK(*op1, PHP_TAINT_MAGIC_POSSIBLE);
+	Z_UNSET_ISREF_PP(op1);
+
+	return ZEND_USER_OPCODE_DISPATCH;
+} /* }}} */
+
+static void php_taint_register_handlers(TSRMLS_D) /* {{{ */ {
+	zend_set_user_opcode_handler(ZEND_ECHO, php_taint_echo_handler);
+	zend_set_user_opcode_handler(ZEND_INCLUDE_OR_EVAL, php_taint_include_or_eval_handler);
+	zend_set_user_opcode_handler(ZEND_PRINT, php_taint_echo_handler);
+	zend_set_user_opcode_handler(ZEND_CONCAT, php_taint_concat_handler);
+	zend_set_user_opcode_handler(ZEND_ASSIGN_CONCAT, php_taint_assign_concat_handler);
+	zend_set_user_opcode_handler(ZEND_ADD_CHAR, php_taint_add_char_handler);
+	zend_set_user_opcode_handler(ZEND_ADD_STRING, php_taint_add_string_handler);
+	zend_set_user_opcode_handler(ZEND_ADD_VAR, php_taint_add_var_handler);
+	zend_set_user_opcode_handler(ZEND_DO_FCALL, php_taint_do_fcall_handler);
+	zend_set_user_opcode_handler(ZEND_DO_FCALL_BY_NAME, php_taint_do_fcall_by_name_handler);
+	zend_set_user_opcode_handler(ZEND_ASSIGN_REF, php_taint_assign_ref_handler);
+	zend_set_user_opcode_handler(ZEND_ASSIGN, php_taint_assign_handler);
+	zend_set_user_opcode_handler(ZEND_SEND_VAR, php_taint_send_var_handler);
+	zend_set_user_opcode_handler(ZEND_SEND_REF, php_taint_send_ref_handler);
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
+	zend_set_user_opcode_handler(ZEND_QM_ASSIGN, php_taint_qm_assign_handler);
+#endif
+} /* }}} */
+
+static void php_taint_override_func(char *name, uint len, php_func handler TSRMLS_DC) /* {{{ */ {
+	zend_function *func;
+	if (zend_hash_find(CG(function_table), name, len, (void **)&func) == SUCCESS) {
+		func->internal_function.handler = handler;
+	}
+} /* }}} */
+
+static void php_taint_override_functions(TSRMLS_D) /* {{{ */ {
+	char f_strval[]   = "strval";
+	char f_sprintf[]  = "sprintf";
+	char f_vsprintf[] = "vsprintf";
+	char f_explode[]  = "explode";
+	char f_split[]    = "split";
+	char f_implode[]  = "implode";
+	char f_join[]     = "join";
+
+	php_taint_override_func(f_strval, sizeof(f_strval), (void *)PHP_FN(taint_strval) TSRMLS_CC);
+	php_taint_override_func(f_sprintf, sizeof(f_sprintf), (void *)PHP_FN(taint_sprintf) TSRMLS_CC);
+	php_taint_override_func(f_vsprintf, sizeof(f_vsprintf), (void *)PHP_FN(taint_vsprintf) TSRMLS_CC);
+	php_taint_override_func(f_explode, sizeof(f_explode), (void *)PHP_FN(taint_explode) TSRMLS_CC);
+	php_taint_override_func(f_split, sizeof(f_split), (void *)PHP_FN(taint_explode) TSRMLS_CC);
+	php_taint_override_func(f_implode, sizeof(f_implode), (void *)PHP_FN(taint_implode) TSRMLS_CC);
+	php_taint_override_func(f_join, sizeof(f_join), (void *)PHP_FN(taint_implode) TSRMLS_CC);
+
+	return;
+} /* }}} */
+
 #ifdef COMPILE_DL_TAINT
 ZEND_GET_MODULE(taint)
 #endif
+
+/* {{{ proto strval(mixed $value) 
+ */
+PHP_FUNCTION(taint_strval) {
+	zval **arg;
+	int tainted = 0;
+
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Only one argument expected");
+		RETURN_FALSE;
+	}
+
+	if (Z_TYPE_PP(arg) == IS_STRING && PHP_TAINT_POSSIBLE(*arg)) {
+		tainted = 1;
+	}
+
+	PHP_FN(strval)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) && Z_STRLEN_P(return_value)) {
+		Z_STRVAL_P(return_value) = erealloc(Z_STRVAL_P(return_value), Z_STRLEN_P(return_value) + 1 + PHP_TAINT_MAGIC_LENGTH);
+		PHP_TAINT_MARK(return_value, PHP_TAINT_MAGIC_POSSIBLE);
+	}
+}
+/* }}} */
+
+/* {{{ proto sprintf(string $format, ...)
+ */
+PHP_FUNCTION(taint_sprintf) {
+	zval ***args;
+	int i, argc, tainted = 0;
+
+	argc = ZEND_NUM_ARGS();
+
+	if (argc < 2) {
+		ZVAL_FALSE(return_value);
+		WRONG_PARAM_COUNT;
+	}
+
+	args = (zval ***)safe_emalloc(argc, sizeof(zval *), 0);
+	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
+		efree(args);
+		ZVAL_FALSE(return_value);
+		WRONG_PARAM_COUNT;
+	}
+
+	for (i=0; i<argc; i++) {
+		if (args[i] && IS_STRING == Z_TYPE_PP(args[i]) && PHP_TAINT_POSSIBLE(*args[i])) {
+			tainted = 1;
+			break;
+		}
+	}
+	efree(args);
+
+	PHP_FN(user_sprintf)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) && Z_STRLEN_P(return_value)) {
+		Z_STRVAL_P(return_value) = erealloc(Z_STRVAL_P(return_value), Z_STRLEN_P(return_value) + 1 + PHP_TAINT_MAGIC_LENGTH);
+		PHP_TAINT_MARK(return_value, PHP_TAINT_MAGIC_POSSIBLE);
+	}
+}
+/* }}} */
+
+/* {{{ proto vsprintf(string $format, ...)
+ */
+PHP_FUNCTION(taint_vsprintf) {
+	zval *format, *args;
+	int argc, tainted = 0;
+
+	argc = ZEND_NUM_ARGS();
+
+	if (argc < 2) {
+		ZVAL_FALSE(return_value);
+		WRONG_PARAM_COUNT;
+	}
+
+	if (zend_parse_parameters(argc TSRMLS_CC, "za", &format, &args) == FAILURE) {
+		ZVAL_FALSE(return_value);
+		WRONG_PARAM_COUNT;
+	}
+
+	do {
+		if (IS_STRING == Z_TYPE_P(format) &&  PHP_TAINT_POSSIBLE(format)) {
+			tainted = 1;
+			break;
+		}
+
+		if (IS_ARRAY == Z_TYPE_P(args)) {
+			HashTable *ht = Z_ARRVAL_P(args);
+			zval **ppzval;
+			for(zend_hash_internal_pointer_reset(ht);
+					zend_hash_has_more_elements(ht) == SUCCESS;
+					zend_hash_move_forward(ht)) {
+				if (zend_hash_get_current_data(ht, (void**)&ppzval) == FAILURE) {
+					continue;
+				}
+				if (IS_STRING == Z_TYPE_PP(ppzval) && Z_STRLEN_PP(ppzval) && PHP_TAINT_POSSIBLE(*ppzval)) {
+					tainted = 1;
+					break;
+				}
+			}
+			break;
+		}
+	} while (0);
+
+	PHP_FN(vsprintf)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) && Z_STRLEN_P(return_value)) {
+		Z_STRVAL_P(return_value) = erealloc(Z_STRVAL_P(return_value), Z_STRLEN_P(return_value) + 1 + PHP_TAINT_MAGIC_LENGTH);
+		PHP_TAINT_MARK(return_value, PHP_TAINT_MAGIC_POSSIBLE);
+	}
+}
+/* }}} */
+
+/* {{{ proto explode(string $separator, string $str[, int $limit])
+ */
+PHP_FUNCTION(taint_explode) {
+	zval *separator, *str, *limit;
+	int tainted = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz|z", &separator, &str, &limit) == FAILURE) {
+		ZVAL_FALSE(return_value);
+		WRONG_PARAM_COUNT;
+	}
+
+	if (IS_STRING == Z_TYPE_P(str) && PHP_TAINT_POSSIBLE(str)) {
+		tainted = 1;
+	}
+
+	PHP_FN(explode)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_ARRAY == Z_TYPE_P(return_value) && zend_hash_num_elements(Z_ARRVAL_P(return_value))) {
+		php_taint_mark_strings(return_value TSRMLS_CC);
+	}
+}
+/* }}} */
+
+/* {{{ proto implode(string $separator, array $args)
+ */
+PHP_FUNCTION(taint_implode) {
+	zval *op1, *op2;
+	zval *target = NULL;
+	int tainted = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz", &op1, &op2) == FAILURE) {
+		ZVAL_FALSE(return_value);
+		WRONG_PARAM_COUNT;
+	}
+
+	if (IS_ARRAY == Z_TYPE_P(op1)) {
+		target = op1;
+	} else if(IS_ARRAY == Z_TYPE_P(op2)) {
+		target = op2;
+	}
+
+	if (target) {
+		HashTable *ht = Z_ARRVAL_P(target);
+		zval **ppzval;
+		for(zend_hash_internal_pointer_reset(ht);
+				zend_hash_has_more_elements(ht) == SUCCESS;
+				zend_hash_move_forward(ht)) {
+			if (zend_hash_get_current_data(ht, (void**)&ppzval) == FAILURE) {
+				continue;
+			}
+			if (IS_STRING == Z_TYPE_PP(ppzval) && Z_STRLEN_PP(ppzval) && PHP_TAINT_POSSIBLE(*ppzval)) {
+				tainted = 1;
+				break;
+			}
+		}
+	}
+
+	PHP_FN(implode)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) && Z_STRLEN_P(return_value)) {
+		Z_STRVAL_P(return_value) = erealloc(Z_STRVAL_P(return_value), Z_STRLEN_P(return_value) + 1 + PHP_TAINT_MAGIC_LENGTH);
+		PHP_TAINT_MARK(return_value, PHP_TAINT_MAGIC_POSSIBLE);
+	}
+}
+/* }}} */
 
 static PHP_INI_MH(OnUpdateErrorLevel) /* {{{ */ {
 	if (!new_value) {
@@ -1245,21 +1682,9 @@ PHP_MINIT_FUNCTION(taint)
 		return SUCCESS;
 	}
 
-	zend_set_user_opcode_handler(ZEND_ECHO, php_taint_echo_handler);
-	zend_set_user_opcode_handler(ZEND_INCLUDE_OR_EVAL, php_taint_include_or_eval_handler);
-	zend_set_user_opcode_handler(ZEND_PRINT, php_taint_echo_handler);
-	zend_set_user_opcode_handler(ZEND_CONCAT, php_taint_concat_handler);
-	zend_set_user_opcode_handler(ZEND_ASSIGN_CONCAT, php_taint_assign_concat_handler);
-	zend_set_user_opcode_handler(ZEND_ADD_CHAR, php_taint_add_char_handler);
-	zend_set_user_opcode_handler(ZEND_ADD_STRING, php_taint_add_string_handler);
-	zend_set_user_opcode_handler(ZEND_ADD_VAR, php_taint_add_var_handler);
-	zend_set_user_opcode_handler(ZEND_DO_FCALL, php_taint_do_fcall_handler);
-	zend_set_user_opcode_handler(ZEND_DO_FCALL_BY_NAME, php_taint_do_fcall_by_name_handler);
-	zend_set_user_opcode_handler(ZEND_ASSIGN_REF, php_taint_assign_ref_handler);
-	zend_set_user_opcode_handler(ZEND_ASSIGN, php_taint_assign_handler);
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
-	zend_set_user_opcode_handler(ZEND_QM_ASSIGN, php_taint_qm_assign_handler);
-#endif
+	php_taint_register_handlers(TSRMLS_C);
+	php_taint_override_functions(TSRMLS_C);
+
 	return SUCCESS;
 }
 /* }}} */
@@ -1311,6 +1736,7 @@ PHP_MINFO_FUNCTION(taint)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "taint support", "enabled");
+	php_info_print_table_row(2, "Version", PHP_TAINT_VERSION);
 	php_info_print_table_end();
 
 	DISPLAY_INI_ENTRIES();
