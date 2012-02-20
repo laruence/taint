@@ -34,7 +34,7 @@ extern zend_module_entry taint_module_entry;
 #include "TSRM.h"
 #endif
 
-#define PHP_TAINT_VERSION "0.3.0"
+#define PHP_TAINT_VERSION "0.4.0-dev"
 
 #define PHP_TAINT_MAGIC_LENGTH   sizeof(unsigned)
 #define PHP_TAINT_MAGIC_NONE     0x00000000
@@ -123,12 +123,9 @@ PHP_FUNCTION(taint_sprintf);
 PHP_FUNCTION(taint_vsprintf);
 PHP_FUNCTION(taint_explode);
 PHP_FUNCTION(taint_implode);
-
-extern PHP_FUNCTION(strval);
-extern PHP_FUNCTION(user_sprintf);
-extern PHP_FUNCTION(vsprintf);
-extern PHP_FUNCTION(explode);
-extern PHP_FUNCTION(implode);
+PHP_FUNCTION(taint_trim);
+PHP_FUNCTION(taint_rtrim);
+PHP_FUNCTION(taint_ltrim);
 
 typedef void (*php_func)(INTERNAL_FUNCTION_PARAMETERS);
 
