@@ -27,8 +27,18 @@ var_dump(is_tainted($a));
 $a = join(" ", $b);
 var_dump(is_tainted($a));
 
+$b = trim($a);
+var_dump(is_tainted($a));
+$b = rtrim($a, "a...Z");
+var_dump(is_tainted($a));
+$b = ltrim($a);
+var_dump(is_tainted($a));
+
 ?>
 --EXPECTF--
+bool(true)
+bool(true)
+bool(true)
 bool(true)
 bool(true)
 bool(true)

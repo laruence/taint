@@ -10,11 +10,11 @@
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2012-02-18</date>
- <time>21:05:17</time>
+ <date>2012-02-20</date>
+ <time>22:00:13</time>
  <version>
-  <release>0.3.0</release>
-  <api>0.3.0</api>
+  <release>0.4.0</release>
+  <api>0.4.0</api>
  </version>
  <stability>
   <release>beta</release>
@@ -22,9 +22,13 @@
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
  <notes>
-   - Taint result of sprintf/vsprintf instead of trigger warnings.
-   - Taint result of explode/implode if the input is tained.
-   - Taint result of strval if the input is tainted
+   - Support trim/rtrim/ltrim
+   - Doesn't depend on exposing of zif_* symbols any more
+   - Fixed a potential crash(PHP 5.2)
+   - Fixed bug that concat_assign lost tainted info(PHP 5.4, if the var_ptr is tainted while value is not)
+   - Fixed memory leak in assign_concat
+   - Fixed tests faild of sprintf/trim etc args signature
+   - Fixed compiler warnings
  </notes>
  <contents> 
   <dir name="/"> 
@@ -62,6 +66,24 @@
   <release> 
    <date>2012-02-18</date> 
    <version> 
+    <release>0.3.0</release> 
+    <api>0.3.0</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+   - Taint result of sprintf/vsprintf instead of trigger warnings.
+   - Taint result of explode/implode if the input is tained.
+   - Taint result of strval if the input is tainted
+   </notes> 
+  </release> 
+
+  <release> 
+   <date>2012-02-18</date> 
+   <version> 
     <release>0.2.0</release> 
     <api>0.2.0</api> 
    </version> 
@@ -77,7 +99,6 @@
    - Support more functions (sqlite, oci, etc)
    </notes> 
   </release> 
-
   <release> 
    <date>2012-02-17</date> 
    <version> 

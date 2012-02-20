@@ -603,12 +603,12 @@ static int php_taint_assign_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 			break;
 	}
 
-	SEPARATE_ZVAL_IF_NOT_REF(var_ptr);
-
 	if ((*var_ptr && IS_STRING == Z_TYPE_PP(var_ptr) && PHP_TAINT_POSSIBLE(*var_ptr))
 			|| (op2 && IS_STRING == Z_TYPE_P(op2) && PHP_TAINT_POSSIBLE(op2))) {
 		tainted = 1;
 	}
+
+	SEPARATE_ZVAL_IF_NOT_REF(var_ptr);
 
 	concat_function(*var_ptr, *var_ptr, op2 TSRMLS_CC);
 
@@ -623,18 +623,14 @@ static int php_taint_assign_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 		TAINT_AI_USE_PTR(TAINT_T(TAINT_RESULT_VAR(opline)).var);
 	}
 
-	switch (TAINT_OP1_TYPE(opline)) {
-		case IS_TMP_VAR:
-			zval_dtor(free_op1.var);
-			break;
-		case IS_VAR:
-			if (free_op1.var) {
-				zval_ptr_dtor(&free_op1.var);
-			}
-			break;
+	if (free_op1.var) {
+		zval_ptr_dtor(&free_op1.var);
 	}
 
 	switch (TAINT_OP2_TYPE(opline)) {
+		case IS_TMP_VAR:
+			zval_dtor(free_op2.var);
+			break;
 		case IS_VAR:
 			if (free_op2.var) {
 				zval_ptr_dtor(&free_op2.var);
@@ -877,7 +873,7 @@ static void php_taint_mcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, zen
 		void **p = EG(argument_stack).top_element;
 #endif
 		int arg_count = opline->extended_value;
-		char *class_name = scope->name;
+		char *class_name = (char *)scope->name;
 		uint cname_len = scope->name_length;
 
 		if (!arg_count) {
@@ -1215,7 +1211,8 @@ static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 			break;
 	}
 
-	if (!op2 || *op2 == &EG(error_zval) || Z_TYPE_PP(op2) != IS_STRING || !Z_STRLEN_PP(op2) || !PHP_TAINT_POSSIBLE(*op2)) {
+	if (!op2 || *op2 == &EG(error_zval) || IS_STRING != Z_TYPE_PP(op2)
+			|| PZVAL_IS_REF(*op2) || !Z_STRLEN_PP(op2) || !PHP_TAINT_POSSIBLE(*op2)) {
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 
@@ -1243,13 +1240,9 @@ static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 	}
 
 	if (!op1 || *op1 != *op2) {
-		if (IS_CV == TAINT_OP2_TYPE(opline)) {
-			/* @FIXME memory leak */
-		}
-		SEPARATE_ZVAL_IF_NOT_REF(op2);
+		SEPARATE_ZVAL(op2);
 		Z_STRVAL_PP(op2) = erealloc(Z_STRVAL_PP(op2), Z_STRLEN_PP(op2) + 1 + PHP_TAINT_MAGIC_LENGTH);
 		PHP_TAINT_MARK(*op2, PHP_TAINT_MAGIC_POSSIBLE);
-		Z_SET_ISREF_PP(op2);
 	}
 
 	return ZEND_USER_OPCODE_DISPATCH;
@@ -1415,8 +1408,7 @@ PHP_FUNCTION(taint_strval) {
 	int tainted = 0;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Only one argument expected");
-		RETURN_FALSE;
+		WRONG_PARAM_COUNT;
 	}
 
 	if (Z_TYPE_PP(arg) == IS_STRING && PHP_TAINT_POSSIBLE(*arg)) {
@@ -1440,7 +1432,7 @@ PHP_FUNCTION(taint_sprintf) {
 
 	argc = ZEND_NUM_ARGS();
 
-	if (argc < 2) {
+	if (argc < 1) {
 		ZVAL_FALSE(return_value);
 		WRONG_PARAM_COUNT;
 	}
@@ -1477,7 +1469,7 @@ PHP_FUNCTION(taint_vsprintf) {
 
 	argc = ZEND_NUM_ARGS();
 
-	if (argc < 2) {
+	if (argc < 1) {
 		ZVAL_FALSE(return_value);
 		WRONG_PARAM_COUNT;
 	}
@@ -1527,7 +1519,6 @@ PHP_FUNCTION(taint_explode) {
 	int tainted = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz|z", &separator, &str, &limit) == FAILURE) {
-		ZVAL_FALSE(return_value);
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1593,8 +1584,7 @@ PHP_FUNCTION(taint_trim)
 	zval *str, *charlist;
 	int tainted = 0;
 
-	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2
-			|| zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|z", &str, &charlist) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|z", &str, &charlist) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1618,8 +1608,7 @@ PHP_FUNCTION(taint_rtrim)
 	zval *str, *charlist;
 	int tainted = 0;
 
-	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2
-			|| zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|z", &str, &charlist) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|z", &str, &charlist) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1643,8 +1632,7 @@ PHP_FUNCTION(taint_ltrim)
 	zval *str, *charlist;
 	int tainted = 0;
 
-	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2
-			|| zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|z", &str, &charlist) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|z", &str, &charlist) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
