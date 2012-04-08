@@ -3,18 +3,21 @@
  <name>taint</name>
  <channel>pecl.php.net</channel>
  <summary>XSS code sniffer</summary>
- <description>extension used for detecting XSS codes(tainted string)</description>
+ <description>
+  An extension used for detecting XSS codes(tainted string), 
+  And also can be used to spot sql injection vulnerabilities, shell inject, etc.
+ </description>
  <lead>
   <name>Xinchen Hui</name>
   <user>laruence</user>
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2012-02-20</date>
- <time>22:00:13</time>
+ <date>2012-03-23</date>
+ <time>11:18:09</time>
  <version>
-  <release>0.4.0</release>
-  <api>0.4.0</api>
+  <release>0.5.0</release>
+  <api>0.5.0</api>
  </version>
  <stability>
   <release>beta</release>
@@ -22,13 +25,9 @@
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
  <notes>
-   - Support trim/rtrim/ltrim
-   - Doesn't depend on exposing of zif_* symbols any more
-   - Fixed a potential crash(PHP 5.2)
-   - Fixed bug that concat_assign lost tainted info(PHP 5.4, if the var_ptr is tainted while value is not)
-   - Fixed memory leak in assign_concat
-   - Fixed tests faild of sprintf/trim etc args signature
-   - Fixed compiler warnings
+   - Support more functions(strstr, substr, str_replace etc)
+   - Fixed Bug that tainted info lost if string is parsed by htmlspecialchars
+   - Trigger warning when doing dim assign concat
  </notes>
  <contents> 
   <dir name="/"> 
@@ -46,6 +45,8 @@
     <file name="005.phpt" role="test" />
     <file name="006.phpt" role="test" />
     <file name="007.phpt" role="test" />
+    <file name="008.phpt" role="test" />
+    <file name="009.phpt" role="test" />
    </dir>
   </dir> 
  </contents> 
@@ -64,6 +65,44 @@
  <extsrcrelease />
  <changelog> 
   <release> 
+   <date>2012-02-26</date> 
+   <version> 
+    <release>0.4.1</release> 
+    <api>0.4.1</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+   - Fixed bug #61163 (Passing and using tainted data in specific way crashes)
+   - Fix build while zend_error_noreturn missed
+   </notes> 
+  </release> 
+
+  <release> 
+   <date>2012-02-20</date> 
+   <version> 
+    <release>0.4.0</release> 
+    <api>0.4.0</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+   - Support trim/rtrim/ltrim
+   - Doesn't depend on exposing of zif_* symbols any more
+   - Fixed a potential crash(PHP 5.2)
+   - Fixed bug that concat_assign lost tainted info(PHP 5.4, if the var_ptr is tainted while value is not)
+   - Fixed memory leak in assign_concat
+   - Fixed tests faild of sprintf/trim etc args signature
+   - Fixed compiler warnings
+   </notes> 
+  </release> 
+  <release> 
    <date>2012-02-18</date> 
    <version> 
     <release>0.3.0</release> 
@@ -80,7 +119,6 @@
    - Taint result of strval if the input is tainted
    </notes> 
   </release> 
-
   <release> 
    <date>2012-02-18</date> 
    <version> 

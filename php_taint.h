@@ -34,7 +34,7 @@ extern zend_module_entry taint_module_entry;
 #include "TSRM.h"
 #endif
 
-#define PHP_TAINT_VERSION "0.4.0"
+#define PHP_TAINT_VERSION "0.5.0"
 
 #define PHP_TAINT_MAGIC_LENGTH   sizeof(unsigned)
 #define PHP_TAINT_MAGIC_NONE     0x00000000
@@ -126,6 +126,12 @@ PHP_FUNCTION(taint_implode);
 PHP_FUNCTION(taint_trim);
 PHP_FUNCTION(taint_rtrim);
 PHP_FUNCTION(taint_ltrim);
+PHP_FUNCTION(taint_strstr);
+PHP_FUNCTION(taint_substr);
+PHP_FUNCTION(taint_str_replace);
+PHP_FUNCTION(taint_str_pad);
+PHP_FUNCTION(taint_strtolower);
+PHP_FUNCTION(taint_strtoupper);
 
 typedef void (*php_func)(INTERNAL_FUNCTION_PARAMETERS);
 
