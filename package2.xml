@@ -13,21 +13,19 @@
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2012-03-23</date>
- <time>11:18:09</time>
+ <date>2012-06-23</date>
+ <time>16:42:06</time>
  <version>
-  <release>0.5.0</release>
-  <api>0.5.0</api>
+  <release>1.0.0</release>
+  <api>1.0.0</api>
  </version>
  <stability>
-  <release>beta</release>
-  <api>beta</api>
+  <release>stable</release>
+  <api>stable</api>
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
- <notes>
-   - Support more functions(strstr, substr, str_replace etc)
-   - Fixed Bug that tainted info lost if string is parsed by htmlspecialchars
-   - Trigger warning when doing dim assign concat
+ <notes> 
+  - Fixed bug #62395 (str_replace重写有误)
  </notes>
  <contents> 
   <dir name="/"> 
@@ -47,6 +45,10 @@
     <file name="007.phpt" role="test" />
     <file name="008.phpt" role="test" />
     <file name="009.phpt" role="test" />
+    <file name="010.phpt" role="test" />
+    <file name="011.phpt" role="test" />
+    <file name="bug61163.phpt" role="test" />
+    <file name="bug61816.phpt" role="test" />
    </dir>
   </dir> 
  </contents> 
@@ -65,6 +67,99 @@
  <extsrcrelease />
  <changelog> 
   <release> 
+   <date>2012-06-23</date> 
+   <version> 
+    <release>1.0.0</release> 
+    <api>1.0.0</api> 
+   </version> 
+   <stability> 
+    <release>stable</release> 
+    <api>stable</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+    - Fixed bug #62395 (str_replace重写有误)
+   </notes> 
+  </release> 
+
+  <release> 
+   <date>2012-05-08</date> 
+   <version> 
+    <release>0.5.3</release> 
+    <api>0.5.3</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+    - Bug #61816 (Segmentation fault)
+   </notes> 
+  </release> 
+  <release> 
+   <date>2012-04-12</date> 
+   <version> 
+    <release>0.5.2</release> 
+    <api>0.5.2</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+   - Fixed Bug that segfault with global keyword
+   </notes> 
+  </release> 
+  <release> 
+   <date>2012-04-11</date> 
+   <version> 
+    <release>0.5.2</release> 
+    <api>0.5.2</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+    - Fixed build with php 5.3
+   </notes> 
+  </release> 
+  <release> 
+   <date>2012-04-09</date> 
+   <version> 
+    <release>0.5.1</release> 
+    <api>0.5.1</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+   - Fixed Bug that segfault with global keyword
+   </notes> 
+  </release> 
+  <release> 
+   <date>2012-03-23</date> 
+   <version> 
+    <release>0.5.0</release> 
+    <api>0.5.0</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+   - Support more functions(strstr, substr, str_replace etc)
+   - Fixed Bug that tainted info lost if string is parsed by htmlspecialchars
+   - Trigger warning when doing dim assign concat
+   </notes> 
+  </release> 
+  <release> 
    <date>2012-02-26</date> 
    <version> 
     <release>0.4.1</release> 
@@ -76,11 +171,10 @@
    </stability> 
    <license uri="http://www.php.net/license">PHP License</license> 
    <notes> 
-   - Fixed bug #61163 (Passing and using tainted data in specific way crashes)
-   - Fix build while zend_error_noreturn missed
+    - Fixed bug #61163 (Passing and using tainted data in specific way crashes)
+    - Fix build while zend_error_noreturn missed
    </notes> 
   </release> 
-
   <release> 
    <date>2012-02-20</date> 
    <version> 

@@ -4,6 +4,7 @@ Check Taint with send_var/send_ref
 <?php if (!extension_loaded("taint")) print "skip"; ?>
 --INI--
 taint.enable=1
+report_memleaks=Off
 --FILE--
 <?php 
 $a = "tainted string" . ".";
