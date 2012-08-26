@@ -15,7 +15,7 @@ var_dump(is_tainted($b));
 $b = substr($a, 0, 4);
 var_dump(is_tainted($b));
 
-$b = str_replace($a, "str", "btr");
+$b = str_replace("str,", "btr", $a);
 var_dump(is_tainted($b));
 
 $b = str_pad($a, 32);

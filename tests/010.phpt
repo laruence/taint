@@ -4,6 +4,7 @@ Check Taint with dim assign contact
 <?php if (!extension_loaded("taint")) print "skip"; ?>
 --INI--
 taint.enable=1
+report_memleaks=Off
 --FILE--
 <?php 
 $a = "tainted string" . ".";
@@ -19,8 +20,8 @@ $c->foo .= $a;
 var_dump(is_tainted($c));
 ?>
 --EXPECTF--
-Warning: main(): Right operand of assign concat(.=) is a tainted string in %s010.php on line %d
+Warning: main(): Right operand of assign concat(.=) is a tainted string, taint could not trace dim concat result now in %s010.php on line %d
 bool(false)
 
-Warning: main(): Right operand of assign concat(.=) is a tainted string in %s010.php on line %d
+Warning: main(): Right operand of assign concat(.=) is a tainted string, taint could not trace dim concat result now in %s010.php on line %d
 bool(false)

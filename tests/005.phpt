@@ -4,6 +4,7 @@ Check Taint with separation
 <?php if (!extension_loaded("taint")) print "skip"; ?>
 --INI--
 taint.enable=1
+report_memleaks=Off
 --FILE--
 <?php 
 $a = "tainted string" . ".";

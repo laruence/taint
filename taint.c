@@ -59,10 +59,23 @@ zend_function_entry taint_functions[] = {
 };
 /* }}} */
 
+/** {{{ module depends
+ */
+#if ZEND_MODULE_API_NO >= 20050922
+zend_module_dep taint_deps[] = {
+	ZEND_MOD_CONFLICTS("xdebug")
+	{NULL, NULL, NULL}
+};
+#endif
+/* }}} */
+
 /* {{{ taint_module_entry
  */
 zend_module_entry taint_module_entry = {
-#if ZEND_MODULE_API_NO >= 20010901
+#if ZEND_MODULE_API_NO >= 20050922
+	STANDARD_MODULE_HEADER_EX, NULL,
+	taint_deps,
+#else
 	STANDARD_MODULE_HEADER,
 #endif
 	"taint",
@@ -574,7 +587,7 @@ static int php_taint_assign_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 		case ZEND_ASSIGN_OBJ:
 		case ZEND_ASSIGN_DIM:
 			{
-		    /* @FIXME */ 
+	     	    /* @FIXME */ 
 				zval *value = NULL;
 				zend_free_op free_value;
 				zend_op *op_data = opline + 1;
@@ -604,8 +617,12 @@ static int php_taint_assign_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 						break;
 				}
 
+				if (value && TAINT_OP1_TYPE(op_data) != IS_CV) {
+					Z_ADDREF_P(value);
+				}
+
 				if (value && IS_STRING == Z_TYPE_P(value) && PHP_TAINT_POSSIBLE(value)) {
-					php_taint_error(NULL TSRMLS_CC, "Right operand of assign concat(.=) is a tainted string");
+					php_taint_error(NULL TSRMLS_CC, "Right operand of assign concat(.=) is a tainted string, taint could not trace dim concat result now");
 				}
 			}
 			return ZEND_USER_OPCODE_DISPATCH;
@@ -621,7 +638,7 @@ static int php_taint_assign_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 	var_ptr = php_taint_get_zval_ptr_ptr(TAINT_OP1_TYPE(opline), &opline->op1, execute_data->Ts, &free_op1, BP_VAR_RW TSRMLS_CC);
 #endif
 
-	if (!var_ptr) {
+	if (!var_ptr || *var_ptr == EG(error_zval_ptr)) { 
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 
@@ -1194,7 +1211,7 @@ static int php_taint_do_fcall_by_name_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ *
 
 static int php_taint_assign_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
-	zval **op2 = NULL;
+	zval **op1 = NULL, **op2 = NULL;
 
 	switch (TAINT_OP2_TYPE(opline)) {
 		case IS_CV:
@@ -1219,7 +1236,42 @@ static int php_taint_assign_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 
-	if (PZVAL_IS_REF(*op2) && Z_REFCOUNT_PP(op2) > 1) {
+	switch (TAINT_OP1_TYPE(opline)) {
+		case IS_VAR:
+			op1 = TAINT_T(TAINT_OP1_VAR(opline)).var.ptr_ptr;
+			break;
+		case IS_CV:
+			{
+				zval **t = TAINT_CV_OF(TAINT_OP1_VAR(opline));
+				if (t && *t) {
+					op1 = t;
+				} else if (EG(active_symbol_table)) {
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
+						op1 = t;
+					}
+				}
+			}
+			break;
+	}
+
+	if (op1 && *op1 != &EG(error_zval) && Z_TYPE_PP(op1) != IS_OBJECT 
+			&& PZVAL_IS_REF(*op1) && IS_TMP_VAR != TAINT_OP2_TYPE(opline)) {
+		zval garbage = **op1;
+		zend_uint refcount = Z_REFCOUNT_PP(op1);
+
+		**op1 = **op2;
+		Z_SET_REFCOUNT_P(*op1, refcount);
+		Z_SET_ISREF_PP(op1);
+		zval_copy_ctor(*op1);
+		zval_dtor(&garbage);
+		Z_STRVAL_PP(op1) = erealloc(Z_STRVAL_PP(op1), Z_STRLEN_PP(op1) + 1 + PHP_TAINT_MAGIC_LENGTH);
+		PHP_TAINT_MARK(*op1, PHP_TAINT_MAGIC_POSSIBLE);
+
+		execute_data->opline++;
+		return ZEND_USER_OPCODE_CONTINUE;
+	} else if (PZVAL_IS_REF(*op2) && Z_REFCOUNT_PP(op2) > 1) {
+
 		SEPARATE_ZVAL(op2);
 		Z_STRVAL_PP(op2) = erealloc(Z_STRVAL_PP(op2), Z_STRLEN_PP(op2) + 1 + PHP_TAINT_MAGIC_LENGTH);
 		PHP_TAINT_MARK(*op2, PHP_TAINT_MAGIC_POSSIBLE);
@@ -1285,6 +1337,9 @@ static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 	if (!op1 || *op1 != *op2) {
 		SEPARATE_ZVAL(op2);
+		/* TODO: free the op2 if it is a var, now ignore the memleak */
+		Z_ADDREF_P(*op2);
+		Z_SET_ISREF_PP(op2);
 		Z_STRVAL_PP(op2) = erealloc(Z_STRVAL_PP(op2), Z_STRLEN_PP(op2) + 1 + PHP_TAINT_MAGIC_LENGTH);
 		PHP_TAINT_MARK(*op2, PHP_TAINT_MAGIC_POSSIBLE);
 	}
@@ -1323,14 +1378,9 @@ static int php_taint_send_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 
-	if (IS_CV == TAINT_OP1_TYPE(opline)) {
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3)
-		/* @TODO: memleak? */
-		Z_ADDREF_P(*op1);
-#endif
-	}
-
 	SEPARATE_ZVAL(op1);
+	Z_SET_REFCOUNT_P(*op1, 2);
+	Z_SET_ISREF_PP(op1);
 	Z_STRVAL_PP(op1) = erealloc(Z_STRVAL_PP(op1), Z_STRLEN_PP(op1) + 1 + PHP_TAINT_MAGIC_LENGTH);
 	PHP_TAINT_MARK(*op1, PHP_TAINT_MAGIC_POSSIBLE);
 
@@ -1373,14 +1423,9 @@ static int php_taint_send_var_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 
-	if (IS_CV == TAINT_OP1_TYPE(opline)) {
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3)
-		/* @TODO: memleak? */
-		Z_ADDREF_P(*op1);
-#endif
-	}
-
 	SEPARATE_ZVAL(op1);
+	Z_SET_REFCOUNT_P(*op1, 2);
+	Z_UNSET_ISREF_PP(op1);
 	Z_STRVAL_PP(op1) = erealloc(Z_STRVAL_PP(op1), Z_STRLEN_PP(op1) + 1 + PHP_TAINT_MAGIC_LENGTH);
 	PHP_TAINT_MARK(*op1, PHP_TAINT_MAGIC_POSSIBLE);
 
@@ -1717,9 +1762,9 @@ PHP_FUNCTION(taint_str_replace)
 		return;
 	}
 	
-	if (IS_STRING == Z_TYPE_P(str) && PHP_TAINT_POSSIBLE(str)) {
+	if (IS_STRING == Z_TYPE_P(repl) && PHP_TAINT_POSSIBLE(repl)) {
 		tainted = 1;
-	} else if (IS_STRING == Z_TYPE_P(repl) && PHP_TAINT_POSSIBLE(repl)) {
+	} else if (IS_STRING == Z_TYPE_P(from) && PHP_TAINT_POSSIBLE(from)) {
 		tainted = 1;
 	}
 
