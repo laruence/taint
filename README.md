@@ -22,7 +22,6 @@ $/path/to/phpize
 $./configure --with-php-config=/path/to/php-config/
 $make && make install
 ````
-
 ### Usage
 When taint is enabled, if you pass a tainted string(comes from $_GET, $_POST or $_COOKIE) to some functions, taint will warn you about that.
 
