@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2010 The PHP Group                                |
+  | Copyright (c) 1997-2012 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -54,6 +54,7 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (execute_data->Ts)
 #  define TAINT_RETURN_VALUE_USED(n) (!((&(n)->result)->u.EA.type & EXT_TYPE_UNUSED))
 #  define TAINT_OP_LINENUM(n)       ((n).u.opline_num)
+#  define TAINT_ARG_PUSH(v)         zend_ptr_stack_push(&EG(argument_stack), v TSRMLS_CC)
 #else
 #  define TAINT_OP1_TYPE(n)         ((n)->op1_type)
 #  define TAINT_OP2_TYPE(n)         ((n)->op2_type)
@@ -67,6 +68,7 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (t)
 #  define TAINT_RETURN_VALUE_USED(n) (!((n)->result_type & EXT_TYPE_UNUSED))
 #  define TAINT_OP_LINENUM(n)       ((n).opline_num)
+#  define TAINT_ARG_PUSH(v)         zend_vm_stack_push(v TSRMLS_CC)
 #endif
 
 #ifndef Z_SET_ISREF_PP
@@ -82,7 +84,7 @@ extern zend_module_entry taint_module_entry;
 #define TAINT_T(offset) (*(temp_variable *)((char *) execute_data->Ts + offset))
 #define TAINT_TS(offset) (*(temp_variable *)((char *)Ts + offset))
 #define TAINT_CV(i)     (EG(current_execute_data)->CVs[i])
-#define TAINT_PZVAL_LOCK(z) Z_ADDREF_P(z);
+#define TAINT_PZVAL_LOCK(z, f) taint_pzval_lock_func(z, f);
 #define TAINT_PZVAL_UNLOCK(z, f) taint_pzval_unlock_func(z, f, 1)
 #define TAINT_PZVAL_UNLOCK_FREE(z) taint_pzval_unlock_free_func(z)
 #define TAINT_CV_OF(i)     (EG(current_execute_data)->CVs[i])
@@ -107,6 +109,12 @@ extern zend_module_entry taint_module_entry;
 #  define Z_UNSET_ISREF_P(pz) (pz)->is_ref = 0 
 #  define Z_ISREF_P(pz)       (pz)->is_ref
 #endif
+
+typedef struct  _taint_free_op {
+	zval* var;
+	int   is_ref;
+	int   type;
+} taint_free_op;
 
 PHP_MINIT_FUNCTION(taint);
 PHP_MSHUTDOWN_FUNCTION(taint);
