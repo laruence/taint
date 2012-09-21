@@ -1372,19 +1372,27 @@ static int php_taint_send_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
-	op1 = php_taint_get_zval_ptr_ptr(&opline->op1, execute_data->Ts, &free_op1, BP_VAR_W TSRMLS_CC);
-#else
-	op1 = php_taint_get_zval_ptr_ptr(TAINT_OP1_TYPE(opline), &opline->op1, execute_data->Ts, &free_op1, BP_VAR_W TSRMLS_CC);
-#endif
-
-	if (!op1 || *op1 == &EG(error_zval)) {
-		return ZEND_USER_OPCODE_DISPATCH;
+	switch (TAINT_OP1_TYPE(opline)) {
+		case IS_VAR:
+			op1 = TAINT_T(TAINT_OP1_VAR(opline)).var.ptr_ptr;
+			break;
+		case IS_CV:
+			{
+				zval **t = TAINT_CV_OF(TAINT_OP1_VAR(opline));
+				if (t && *t) {
+					op1 = t;
+				} else if (EG(active_symbol_table)) {
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
+						op1 = t;
+					}
+				}
+			}
+			break;
 	}
 
-	if (IS_STRING != Z_TYPE_PP(op1) 
+	if (!op1 || *op1 == &EG(error_zval) || *op1 == &EG(uninitialized_zval) || IS_STRING != Z_TYPE_PP(op1) 
 			 || PZVAL_IS_REF(*op1) || Z_REFCOUNT_PP(op1) < 2 || !Z_STRLEN_PP(op1) || !PHP_TAINT_POSSIBLE(*op1)) {
-		TAINT_PZVAL_LOCK(*op1, &free_op1);
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 
@@ -1417,19 +1425,27 @@ static int php_taint_send_var_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 		return php_taint_send_ref_handler(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);
 	}
 
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
-	op1 = php_taint_get_zval_ptr_ptr(&opline->op1, execute_data->Ts, &free_op1, BP_VAR_W TSRMLS_CC);
-#else
-	op1 = php_taint_get_zval_ptr_ptr(TAINT_OP1_TYPE(opline), &opline->op1, execute_data->Ts, &free_op1, BP_VAR_W TSRMLS_CC);
-#endif
-
-	if (!op1 || *op1 == &EG(error_zval) || *op1 == &EG(uninitialized_zval)) {
-		return ZEND_USER_OPCODE_DISPATCH;
+	switch (TAINT_OP1_TYPE(opline)) {
+		case IS_VAR:
+			op1 = TAINT_T(TAINT_OP1_VAR(opline)).var.ptr_ptr;
+			break;
+		case IS_CV:
+			{
+				zval **t = TAINT_CV_OF(TAINT_OP1_VAR(opline));
+				if (t && *t) {
+					op1 = t;
+				} else if (EG(active_symbol_table)) {
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
+						op1 = t;
+					}
+				}
+			}
+			break;
 	}
 
-	if (IS_STRING != Z_TYPE_PP(op1) 
+	if (!op1 || *op1 == &EG(error_zval) || *op1 == &EG(uninitialized_zval) || IS_STRING != Z_TYPE_PP(op1) 
 			|| !PZVAL_IS_REF(*op1) || Z_REFCOUNT_PP(op1) < 2 || !Z_STRLEN_PP(op1) || !PHP_TAINT_POSSIBLE(*op1)) {
-		TAINT_PZVAL_LOCK(*op1, &free_op1);
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 

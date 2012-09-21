@@ -34,7 +34,7 @@ extern zend_module_entry taint_module_entry;
 #include "TSRM.h"
 #endif
 
-#define PHP_TAINT_VERSION "1.0.1-dev"
+#define PHP_TAINT_VERSION "1.1.1-dev"
 
 #define PHP_TAINT_MAGIC_LENGTH   sizeof(unsigned)
 #define PHP_TAINT_MAGIC_NONE     0x00000000
@@ -54,7 +54,6 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (execute_data->Ts)
 #  define TAINT_RETURN_VALUE_USED(n) (!((&(n)->result)->u.EA.type & EXT_TYPE_UNUSED))
 #  define TAINT_OP_LINENUM(n)       ((n).u.opline_num)
-#  define TAINT_ARG_PUSH(v)         zend_ptr_stack_push(&EG(argument_stack), v TSRMLS_CC)
 #else
 #  define TAINT_OP1_TYPE(n)         ((n)->op1_type)
 #  define TAINT_OP2_TYPE(n)         ((n)->op2_type)
@@ -68,6 +67,11 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (t)
 #  define TAINT_RETURN_VALUE_USED(n) (!((n)->result_type & EXT_TYPE_UNUSED))
 #  define TAINT_OP_LINENUM(n)       ((n).opline_num)
+#endif
+
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
+#  define TAINT_ARG_PUSH(v)         zend_ptr_stack_push(&EG(argument_stack), v TSRMLS_CC)
+#else
 #  define TAINT_ARG_PUSH(v)         zend_vm_stack_push(v TSRMLS_CC)
 #endif
 

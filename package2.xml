@@ -13,15 +13,15 @@
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2012-?-?</date>
- <time>16:42:06</time>
+ <date>2012-09-21</date>
+ <time>21:53:46</time>
  <version>
-  <release>1.0.1</release>
-  <api>1.0.1</api>
+  <release>1.1.0</release>
+  <api>1.1.0</api>
  </version>
  <stability>
-  <release>stable</release>
-  <api>stable</api>
+  <release>beta</release>
+  <api>beta</api>
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
  <notes> 
@@ -69,6 +69,23 @@
  <extsrcrelease />
  <changelog> 
   <release> 
+   <date>2012-09-21</date> 
+   <version> 
+    <release>1.1.0</release> 
+    <api>1.1.0</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+    - Fixed bug #63100 (array_walk_recursive behaves wrongly when taint enabled)
+    - Fixed bug #63123 (Hash pointer should be reset at the end of function:php_taint_mark_strings). (274611049 at qq dot com)
+   </notes> 
+  </release> 
+
+  <release> 
    <date>2012-06-23</date> 
    <version> 
     <release>1.0.0</release> 
@@ -83,7 +100,6 @@
     - Fixed bug #62395 (str_replace重写有误)
    </notes> 
   </release> 
-
   <release> 
    <date>2012-05-08</date> 
    <version> 
