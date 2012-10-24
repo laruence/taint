@@ -15,7 +15,7 @@
   | Author:  Xinchen Hui    <laruence@php.net>                           |
   +----------------------------------------------------------------------+
 */
-
+/* for test */
 /* $Id$ */
 
 #ifdef HAVE_CONFIG_H
