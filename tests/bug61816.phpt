@@ -18,7 +18,8 @@ echo $b[0];  // Segmentation fault
 var_dump(is_tainted($c->foo));
 ?>
 --EXPECTF--
-Warning: main(): Right operand of assign concat(.=) is a tainted string, taint could not trace dim concat result now in %sbug61816.php on line %d
-bool(false)
+bool(true)
+
+Warning: main(): Attempt to echo a string that might be tainted in %sbug61816.php on line %d
 tainted string.
-bool(false)
+bool(true)
