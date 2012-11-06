@@ -54,6 +54,9 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (execute_data->Ts)
 #  define TAINT_RETURN_VALUE_USED(n) (!((&(n)->result)->u.EA.type & EXT_TYPE_UNUSED))
 #  define TAINT_OP_LINENUM(n)       ((n).u.opline_num)
+#  define TAINT_AI_SET_PTR(ai, val)		\
+	(ai).ptr = (val);					\
+	(ai).ptr_ptr = &((ai).ptr);
 #else
 #  define TAINT_OP1_TYPE(n)         ((n)->op1_type)
 #  define TAINT_OP2_TYPE(n)         ((n)->op2_type)
@@ -67,6 +70,11 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (t)
 #  define TAINT_RETURN_VALUE_USED(n) (!((n)->result_type & EXT_TYPE_UNUSED))
 #  define TAINT_OP_LINENUM(n)       ((n).opline_num)
+#  define TAINT_AI_SET_PTR(t, val) do {		\
+		temp_variable *__t = (t);			\
+		__t->var.ptr = (val);				\
+		__t->var.ptr_ptr = &__t->var.ptr;	\
+	} while (0)
 #endif
 
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3) 
