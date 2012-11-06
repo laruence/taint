@@ -712,7 +712,6 @@ fetch_string_dim:
 						/* break missing intentionally */
 					case BP_VAR_W: {
 							zval *new_zval = &EG(uninitialized_zval);
-
 							Z_ADDREF_P(new_zval);
 						#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
 							zend_symtable_update(ht, offset_key, offset_key_length+1, &new_zval, sizeof(zval *), (void **) &retval);
@@ -973,7 +972,7 @@ static int php_taint_binary_assign_op_obj_helper(int (*binary_op)(zval *result, 
 	int have_get_ptr = 0;
 	uint tainted = 0;
 
-	#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
 	zval *value = php_taint_get_zval_ptr(&op_data->op1, execute_data->Ts, &free_op_data1, BP_VAR_R TSRMLS_CC);
 #else
 	zval *value = php_taint_get_zval_ptr((opline+1)->op1_type, &(opline+1)->op1, execute_data->Ts, &free_op_data1, BP_VAR_R);
