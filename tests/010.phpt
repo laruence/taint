@@ -11,7 +11,7 @@ $a = "tainted string" . ".";
 taint($a);
 $b = array("this is");
 $b[0] .= $a;
-var_dump(is_tainted($b[0])); //@FIXME
+var_dump(is_tainted($b[0])); 
 
 $c = new stdClass();
 $c->foo = "this is";
