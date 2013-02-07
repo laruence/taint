@@ -93,6 +93,16 @@ extern zend_module_entry taint_module_entry;
 #  define Z_REFCOUNT_PP(n)  ((*n)->refcount)
 #endif
 
+#ifndef MAKE_REAL_ZVAL_PTR
+#define MAKE_REAL_ZVAL_PTR(val) \
+    do { \
+        zval *_tmp; \
+        ALLOC_ZVAL(_tmp); \
+        INIT_PZVAL_COPY(_tmp, (val)); \
+        (val) = _tmp; \
+    } while (0)
+#endif
+
 #define TAINT_T(offset) (*(temp_variable *)((char *) execute_data->Ts + offset))
 #define TAINT_TS(offset) (*(temp_variable *)((char *)Ts + offset))
 #define TAINT_CV(i)     (EG(current_execute_data)->CVs[i])
