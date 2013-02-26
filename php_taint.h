@@ -34,7 +34,7 @@ extern zend_module_entry taint_module_entry;
 #include "TSRM.h"
 #endif
 
-#define PHP_TAINT_VERSION "1.3.0-dev"
+#define PHP_TAINT_VERSION "1.2.1"
 
 #define PHP_TAINT_MAGIC_LENGTH   sizeof(unsigned)
 #define PHP_TAINT_MAGIC_NONE     0x00000000
