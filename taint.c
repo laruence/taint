@@ -178,7 +178,7 @@ static zval **php_taint_get_obj_zval_ptr_ptr_unused(TSRMLS_D) /* {{{ */ {
 	if (EG(This)) {
 		return &EG(This);
 	} else {
-		zend_error_noreturn(E_ERROR, "Using $this when not in object context");
+		zend_error(E_ERROR, "Using $this when not in object context");
 		return NULL;
 	}
 } /* }}} */
@@ -833,7 +833,8 @@ convert_to_array:
 					goto convert_to_array;
 				}
 				if (dim == NULL) {
-					zend_error_noreturn(E_ERROR, "[] operator not supported for strings");
+					zend_error(E_ERROR, "[] operator not supported for strings");
+					return;
 				}
 
 				if (Z_TYPE_P(dim) != IS_LONG) {
@@ -878,7 +879,8 @@ convert_to_array:
 
 		case IS_OBJECT:
 			if (!Z_OBJ_HT_P(container)->read_dimension) {
-				zend_error_noreturn(E_ERROR, "Cannot use object as array");
+				zend_error(E_ERROR, "Cannot use object as array");
+				return;
 			} else {
 				zval *overloaded_result;
 			#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
@@ -983,7 +985,8 @@ static int php_taint_binary_assign_op_obj_helper(int (*binary_op)(zval *result, 
 		case IS_VAR:
 			object_ptr = php_taint_get_zval_ptr_ptr_var(TAINT_OP1_NODE_PTR(opline), execute_data->Ts, &free_op1 TSRMLS_CC);
 			if (!object_ptr) {
-				zend_error_noreturn(E_ERROR, "Cannot use string offset as an object");
+				zend_error(E_ERROR, "Cannot use string offset as an object");
+				return 0;
 			}
 			break;
 		case IS_CV:
@@ -1303,7 +1306,8 @@ static int php_taint_binary_assign_op_helper(int (*binary_op)(zval *result, zval
 	}
 
 	if (!var_ptr) {
-		zend_error_noreturn(E_ERROR, "Cannot use assign-op operators with overloaded objects nor string offsets");
+		zend_error(E_ERROR, "Cannot use assign-op operators with overloaded objects nor string offsets");
+		return 0;
 	}
 
 	if (*var_ptr == EG(error_zval_ptr)) {
