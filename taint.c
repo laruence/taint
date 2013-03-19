@@ -1929,7 +1929,7 @@ static int php_taint_assign_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 				if (t && *t) {
 					op2 = t;
 				} else if (EG(active_symbol_table)) {
-					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP2_VAR(opline));
 					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
 						op2 = t;
 					}
@@ -2006,7 +2006,7 @@ static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 				if (t && *t) {
 					op2 = t;
 				} else if (EG(active_symbol_table)) {
-					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP2_VAR(opline));
 					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
 						op2 = t;
 					}
