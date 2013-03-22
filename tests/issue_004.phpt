@@ -1,5 +1,5 @@
 --TEST--
-ISSUE #3 (wrong op fetched)
+ISSUE #4 (wrong op fetched)
 --SKIPIF--
 <?php if (!extension_loaded("taint")) print "skip"; ?>
 --INI--
