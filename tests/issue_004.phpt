@@ -1,0 +1,21 @@
+--TEST--
+ISSUE #3 (wrong op fetched)
+--SKIPIF--
+<?php if (!extension_loaded("taint")) print "skip"; ?>
+--INI--
+taint.enable=1
+report_memleaks=0
+--FILE--
+<?php
+function dummy(&$a) {
+	extract(array("b" => "ccc"));
+	$a = $b;
+}
+
+$c = "xxx". "xxx";
+taint($c);
+dummy($c);
+var_dump($c);
+?>
+--EXPECTF--
+string(3) "ccc"
