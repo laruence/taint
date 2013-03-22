@@ -50,6 +50,7 @@
     <file name="bug61163.phpt" role="test" />
     <file name="bug61816.phpt" role="test" />
     <file name="bug63123.phpt" role="test" />
+    <file name="issue_004.phpt" role="test" />
    </dir>
   </dir> 
  </contents> 
