@@ -93,6 +93,14 @@ extern zend_module_entry taint_module_entry;
 #  define Z_REFCOUNT_PP(n)  ((*n)->refcount)
 #endif
 
+#ifndef INIT_PZVAL_COPY
+#define INIT_PZVAL_COPY(z,v) \
+	(z)->value = (v)->value; \
+	Z_TYPE_P(z) = Z_TYPE_P(v); \
+	(z)->refcount = 1; \
+	(z)->is_ref = 0;
+#endif
+
 #ifndef MAKE_REAL_ZVAL_PTR
 #define MAKE_REAL_ZVAL_PTR(val) \
     do { \
