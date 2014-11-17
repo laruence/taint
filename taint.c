@@ -2088,11 +2088,13 @@ static int php_taint_return_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 			 || !PZVAL_IS_REF(*op1) || Z_REFCOUNT_PP(op1) < 2 || !Z_STRLEN_PP(op1) || !PHP_TAINT_POSSIBLE(*op1)) {
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
-    if(op1 && PZVAL_IS_REF(*op1)) {
+    if(op1 && PZVAL_IS_REF(*op1) && PHP_TAINT_POSSIBLE(*op1)) {
 		zval *ret;
 		ALLOC_ZVAL(ret);
 		INIT_PZVAL_COPY(ret, *op1);
 		zval_copy_ctor(ret);
+		Z_STRVAL_P(ret) = erealloc(Z_STRVAL_P(ret), Z_STRLEN_P(ret) + 1 + PHP_TAINT_MAGIC_LENGTH);
+		PHP_TAINT_MARK(ret, PHP_TAINT_MAGIC_POSSIBLE);
 		*EG(return_value_ptr_ptr) = ret;
 	}																								
 	return ZEND_USER_OPCODE_RETURN;
