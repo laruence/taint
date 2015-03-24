@@ -1491,13 +1491,11 @@ static int php_taint_binary_assign_op_helper(int (*binary_op)(zval *result, zval
 
 	if (*var_ptr == EG(error_zval_ptr)) {
 		if (TAINT_RETURN_VALUE_USED(opline)) {
-			/*
 			TAINT_T(TAINT_RESULT_VAR(opline)).var.ptr_ptr = &EG(uninitialized_zval_ptr);
 			Z_ADDREF_P(*TAINT_T(TAINT_RESULT_VAR(opline)).var.ptr_ptr);
 			TAINT_AI_USE_PTR(TAINT_T(TAINT_RESULT_VAR(opline)).var);
-			*/
-			TAINT_PZVAL_LOCK(&EG(uninitialized_zval));
-			TAINT_AI_SET_PTR(&TAINT_T(opline->result.var), &EG(uninitialized_zval));
+			//TAINT_PZVAL_LOCK(&EG(uninitialized_zval));
+			//TAINT_AI_SET_PTR(&TAINT_T(opline->result.var), &EG(uninitialized_zval));
 		}
 		
 		switch(TAINT_OP2_TYPE(opline)) {
@@ -1555,13 +1553,11 @@ static int php_taint_binary_assign_op_helper(int (*binary_op)(zval *result, zval
 	}
 
 	if (TAINT_RETURN_VALUE_USED(opline)) {
-		/*
 		TAINT_T(TAINT_RESULT_VAR(opline)).var.ptr_ptr = var_ptr;
 		Z_ADDREF_P(*var_ptr);
 		TAINT_AI_USE_PTR(TAINT_T(TAINT_RESULT_VAR(opline)).var);
-		*/
-		TAINT_PZVAL_LOCK(*var_ptr);
-		TAINT_AI_SET_PTR(&TAINT_T(opline->result.var), *var_ptr);
+		//TAINT_PZVAL_LOCK(*var_ptr);
+		//TAINT_AI_SET_PTR(&TAINT_T(opline->result.var), *var_ptr);
 	}
 
 	switch(TAINT_OP2_TYPE(opline)) {
