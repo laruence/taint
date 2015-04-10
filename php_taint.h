@@ -54,7 +54,7 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_GET_ZVAL_PTR_CV_2ND_ARG(t) (execute_data->Ts)
 #  define TAINT_RETURN_VALUE_USED(n) (!((&(n)->result)->u.EA.type & EXT_TYPE_UNUSED))
 #  define TAINT_OP_LINENUM(n)       ((n).u.opline_num)
-#  define TAINT_AI_SET_PTR(ai, val)		\
+#  define TAINT_AI_SET_PTR(ai, val)    	\
 	(ai).ptr = (val);					\
 	(ai).ptr_ptr = &((ai).ptr);
 #else
@@ -111,15 +111,28 @@ extern zend_module_entry taint_module_entry;
     } while (0)
 #endif
 
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 5)
+#define TAINT_T(offset) (*EX_TMP_VAR(execute_data, offset))
+#define TAINT_CV(i)     (*EX_CV_NUM(execute_data, var))
+#define TAINT_CV_OF(i)   (*EX_CV_NUM(EG(current_execute_data), i))
+#define TAINT_PZVAL_LOCK(z)  Z_ADDREF_P((z))
+#else
 #define TAINT_T(offset) (*(temp_variable *)((char *) execute_data->Ts + offset))
-#define TAINT_TS(offset) (*(temp_variable *)((char *)Ts + offset))
 #define TAINT_CV(i)     (EG(current_execute_data)->CVs[i])
+#define TAINT_CV_OF(i)     (EG(current_execute_data)->CVs[i])
 #define TAINT_PZVAL_LOCK(z, f) taint_pzval_lock_func(z, f);
+#endif
+
+#define TAINT_TS(offset) (*(temp_variable *)((char *)Ts + offset))
+
+
+
 #define TAINT_PZVAL_UNLOCK(z, f) taint_pzval_unlock_func(z, f, 1)
 #define TAINT_PZVAL_UNLOCK_FREE(z) taint_pzval_unlock_free_func(z)
-#define TAINT_CV_OF(i)     (EG(current_execute_data)->CVs[i])
+
 #define TAINT_CV_DEF_OF(i) (EG(active_op_array)->vars[i])
 #define TAINT_TMP_FREE(z) (zval*)(((zend_uintptr_t)(z)) | 1L)
+
 #define TAINT_AI_USE_PTR(ai) \
 	if ((ai).ptr_ptr) { \
 		(ai).ptr = *((ai).ptr_ptr); \
@@ -127,6 +140,13 @@ extern zend_module_entry taint_module_entry;
 	} else { \
 		(ai).ptr = NULL; \
 	}
+
+#define TAINT_AI_SET_PTR(t, val) do {   \
+        temp_variable *__t = (t); \
+        __t->var.ptr = (val);  \
+        __t->var.ptr_ptr = &__t->var.ptr; \
+    } while (0)
+
 #define TAINT_FREE_OP(should_free) \
 	if (should_free.var) { \
 		if ((zend_uintptr_t)should_free.var & 1L) { \
