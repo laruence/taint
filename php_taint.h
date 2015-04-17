@@ -113,7 +113,7 @@ extern zend_module_entry taint_module_entry;
 
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 5)
 #define TAINT_T(offset) (*EX_TMP_VAR(execute_data, offset))
-#define TAINT_CV(i)     (*EX_CV_NUM(execute_data, var))
+#define TAINT_CV(i)     (*EX_CV_NUM(execute_data, i))
 #define TAINT_CV_OF(i)   (*EX_CV_NUM(EG(current_execute_data), i))
 #define TAINT_PZVAL_LOCK(z)  Z_ADDREF_P((z))
 #else
