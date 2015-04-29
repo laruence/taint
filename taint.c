@@ -735,14 +735,14 @@ static int php_taint_concat_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 	switch(TAINT_OP2_TYPE(opline)) {
 		case IS_TMP_VAR:
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 5)
-			op2 = php_taint_get_zval_ptr_tmp(TAINT_OP1_NODE_PTR(opline), execute_data, &free_op2 TSRMLS_CC);
+			op2 = php_taint_get_zval_ptr_tmp(TAINT_OP2_NODE_PTR(opline), execute_data, &free_op2 TSRMLS_CC);
 #else
 			op2 = php_taint_get_zval_ptr_tmp(TAINT_OP2_NODE_PTR(opline), execute_data->Ts, &free_op2 TSRMLS_CC);
 #endif
 			break;
 		case IS_VAR:
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 5)
-			op2 = php_taint_get_zval_ptr_var(TAINT_OP1_NODE_PTR(opline), execute_data, &free_op2 TSRMLS_CC);
+			op2 = php_taint_get_zval_ptr_var(TAINT_OP2_NODE_PTR(opline), execute_data, &free_op2 TSRMLS_CC);
 #else
 			op2 = php_taint_get_zval_ptr_var(TAINT_OP2_NODE_PTR(opline), execute_data->Ts, &free_op2 TSRMLS_CC);
 #endif
