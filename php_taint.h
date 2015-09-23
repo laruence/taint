@@ -36,10 +36,10 @@ extern zend_module_entry taint_module_entry;
 
 #define PHP_TAINT_VERSION "1.3.0-dev"
 
-#define PHP_TAINT_MAGIC_LENGTH   sizeof(unsigned)
-#define PHP_TAINT_MAGIC_NONE     0x00000000
-#define PHP_TAINT_MAGIC_POSSIBLE 0x6A8FCE84
-#define PHP_TAINT_MAGIC_UNTAINT  0x2C5E7F2D
+/* it's important that make sure 
+ * this value is not used by Zend or
+ * any other extension agianst string */
+#define IS_STR_TAINT_POSSIBLE    (1<<7)
 
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4) 
 #  define TAINT_OP1_TYPE(n)         ((n)->op1.op_type)
@@ -160,9 +160,8 @@ extern zend_module_entry taint_module_entry;
 		zval_ptr_dtor(&should_free.var); \
 	}
 
-#define PHP_TAINT_MARK(zv, mark) *((unsigned *)(Z_STRVAL_P(zv) + Z_STRLEN_P(zv) + 1)) = (mark)
-#define PHP_TAINT_POSSIBLE(zv) (*(unsigned *)(Z_STRVAL_P(zv) + Z_STRLEN_P(zv) + 1) == PHP_TAINT_MAGIC_POSSIBLE)
-#define PHP_TAINT_UNTAINT(zv)  (*(unsigned *)(Z_STRVAL_P(zv) + Z_STRLEN_P(zv) + 1) == PHP_TAINT_MAGIC_UNTAINT)
+#define PHP_TAINT_POSSIBLE(str) (GC_FLAGS((str)) |= IS_STR_TAINT_POSSIBLE)
+#define PHP_TAINT_UNTAINT(str)  (GC_FLAGS((str)) &= ~IS_STR_TAINT_POSSIBLE)
 
 #if ((PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 3))
 #  define Z_ADDREF_P   ZVAL_ADDREF
