@@ -48,7 +48,7 @@ extern zend_module_entry taint_module_entry;
 #define TAINT_OP1_TYPE(opline)	(opline->op1_type)
 #define TAINT_OP2_TYPE(opline)	(opline->op2_type)
 
-typedef zval taint_free_op;
+typedef zval* taint_free_op;
 
 PHP_MINIT_FUNCTION(taint);
 PHP_MSHUTDOWN_FUNCTION(taint);
