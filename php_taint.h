@@ -74,6 +74,9 @@ PHP_FUNCTION(taint_str_replace);
 PHP_FUNCTION(taint_str_pad);
 PHP_FUNCTION(taint_strtolower);
 PHP_FUNCTION(taint_strtoupper);
+PHP_FUNCTION(taint_dirname);
+PHP_FUNCTION(taint_basename);
+PHP_FUNCTION(taint_pathinfo);
 
 typedef void (*php_func)(INTERNAL_FUNCTION_PARAMETERS);
 
