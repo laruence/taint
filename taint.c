@@ -947,7 +947,8 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				break;
 			}
 
-			if (strncmp("file", fname, len) == 0) {
+			if (strncmp("file", fname, len) == 0
+				|| strncmp("file_get_contents", fname, len) == 0) {
 				zval *p = ZEND_CALL_ARG(ex, 1);
 				if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
 					php_taint_error(fname, "Attempt to read a file which path might be tainted");
