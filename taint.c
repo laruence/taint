@@ -704,7 +704,7 @@ static void php_taint_binary_assign_op_obj_dim(zval *object, zval *property, zva
 /* }}} */
 /* Copied codes end */
 
-static int php_taint_binary_assign_op_helper(int (*binary_op)(zval *result, zval *op1, zval *op2), zend_execute_data *execute_data) /* {{{ */ {
+static int php_taint_binary_assign_op_helper(binary_op_type binary_op, zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
 	zval *var_ptr, *value;
 	taint_free_op free_op1, free_op2;
@@ -749,7 +749,7 @@ static int php_taint_binary_assign_op_helper(int (*binary_op)(zval *result, zval
 	return ZEND_USER_OPCODE_CONTINUE; 
 } /* }}} */
 
-static int php_taint_binary_assign_op_obj_helper(int (*binary_op)(zval *result, zval *op1, zval *op2), zend_execute_data *execute_data) /* {{{ */ {
+static int php_taint_binary_assign_op_obj_helper(binary_op_type binary_op, zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
 	zval *object, *property, *var_ptr, *value;
 	taint_free_op free_op1, free_op2, free_op_data;
@@ -820,7 +820,7 @@ static int php_taint_binary_assign_op_obj_helper(int (*binary_op)(zval *result, 
 }
 /* }}} */
 
-static int php_taint_binary_assign_op_dim_helper(int (*binary_op)(zval *result, zval *op1, zval *op2), zend_execute_data *execute_data) /* {{{ */ {
+static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
 	zval *container, *dim, *var_ptr, *value, rv;
 	taint_free_op free_op1, free_op2, free_op_data;
