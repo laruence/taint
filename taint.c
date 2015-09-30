@@ -256,6 +256,33 @@ static int php_taint_exit_handler(zend_execute_data *execute_data) /* {{{ */ {
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
+static int php_taint_init_dynamic_fcall_handler(zend_execute_data *execute_data) /* {{{ */ {
+	const zend_op *opline = execute_data->opline;
+	taint_free_op free_op2;
+	zval *op2;
+
+	op2 = php_taint_get_zval_ptr(execute_data, opline->op2_type, opline->op2, &free_op2, BP_VAR_R, 0);
+
+	if (op2) {
+		if (IS_STRING == Z_TYPE_P(op2)) {
+			if (TAINT_POSSIBLE(Z_STR_P(op2))) {
+				php_taint_error("fcall", "Attempt to call a function which name might be tainted");
+			}
+		} else if (IS_ARRAY == Z_TYPE_P(op2)) {
+			zval *cname = zend_hash_index_find(Z_ARRVAL_P(op2), 0);
+			zval *mname = zend_hash_index_find(Z_ARRVAL_P(op2), 0);
+
+			if (cname && IS_STRING == Z_TYPE_P(cname) && TAINT_POSSIBLE(Z_STR_P(cname))) {
+				php_taint_error("fcall", "Attempt to call a method of a class which name might be tainted");
+			} else if (mname && IS_STRING == Z_TYPE_P(mname) && TAINT_POSSIBLE(Z_STR_P(mname))) {
+				php_taint_error("fcall", "Attempt to call a method which name might be tainted");
+			}
+		}
+	}
+
+	return ZEND_USER_OPCODE_DISPATCH;
+} /* }}} */
+
 static int php_taint_include_or_eval_handler(zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
 	taint_free_op free_op1;
@@ -1129,6 +1156,8 @@ static int php_taint_fcall_handler(zend_execute_data *execute_data) /* {{{ */ {
 static void php_taint_register_handlers() /* {{{ */ {
 	zend_set_user_opcode_handler(ZEND_ECHO, php_taint_echo_handler);
 	zend_set_user_opcode_handler(ZEND_EXIT, php_taint_exit_handler);
+	zend_set_user_opcode_handler(ZEND_INIT_USER_CALL, php_taint_init_dynamic_fcall_handler);
+	zend_set_user_opcode_handler(ZEND_INIT_DYNAMIC_CALL, php_taint_init_dynamic_fcall_handler);
 	zend_set_user_opcode_handler(ZEND_INCLUDE_OR_EVAL, php_taint_include_or_eval_handler);
 	zend_set_user_opcode_handler(ZEND_CONCAT, php_taint_concat_handler);
 	zend_set_user_opcode_handler(ZEND_FAST_CONCAT, php_taint_concat_handler);
