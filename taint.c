@@ -1526,7 +1526,7 @@ PHP_FUNCTION(taint_strtoupper)
 
 static PHP_INI_MH(OnUpdateErrorLevel) /* {{{ */ {
 	if (!new_value) {
-		TAINT_G(error_level) = E_WARNING;
+		TAINT_G(error_level) = E_USER_WARNING;
 	} else {
 		TAINT_G(error_level) = (int)atoi(ZSTR_VAL(new_value));
 	}
@@ -1537,7 +1537,7 @@ static PHP_INI_MH(OnUpdateErrorLevel) /* {{{ */ {
 */
 PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("taint.enable", "0", PHP_INI_SYSTEM, OnUpdateBool, enable, zend_taint_globals, taint_globals)
-	STD_PHP_INI_ENTRY("taint.error_level", "2", PHP_INI_ALL, OnUpdateErrorLevel, error_level, zend_taint_globals, taint_globals)
+	STD_PHP_INI_ENTRY("taint.error_level", "512", PHP_INI_ALL, OnUpdateErrorLevel, error_level, zend_taint_globals, taint_globals)
 PHP_INI_END()
 	/* }}} */
 
