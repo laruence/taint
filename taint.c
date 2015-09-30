@@ -242,6 +242,20 @@ static int php_taint_echo_handler(zend_execute_data *execute_data) /* {{{ */ {
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
+static int php_taint_exit_handler(zend_execute_data *execute_data) /* {{{ */ {
+	const zend_op *opline = execute_data->opline;
+	taint_free_op free_op1;
+	zval *op1;
+
+	op1 = php_taint_get_zval_ptr(execute_data, opline->op1_type, opline->op1, &free_op1, BP_VAR_R, 0);
+
+	if (op1 && IS_STRING == Z_TYPE_P(op1) && TAINT_POSSIBLE(Z_STR_P(op1))) {
+		php_taint_error("exit", "Attempt to output a string that might be tainted");
+	}
+
+	return ZEND_USER_OPCODE_DISPATCH;
+} /* }}} */
+
 static int php_taint_include_or_eval_handler(zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
 	taint_free_op free_op1;
@@ -948,6 +962,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			}
 
 			if (strncmp("file", fname, len) == 0
+				|| strncmp("readfile", fname, len) == 0
 				|| strncmp("file_get_contents", fname, len) == 0) {
 				zval *p = ZEND_CALL_ARG(ex, 1);
 				if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
@@ -1045,10 +1060,11 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			}
 
 			if (strncmp("passthru", fname, len) == 0
-					|| strncmp("system", fname, len) == 0
-					|| strncmp("exec", fname, len) == 0
-					|| strncmp("shell_exec", fname, len) == 0
-					|| strncmp("proc_open", fname, len) == 0 ) {
+				|| strncmp("system", fname, len) == 0
+				|| strncmp("exec", fname, len) == 0
+				|| strncmp("shell_exec", fname, len) == 0
+				|| strncmp("proc_open", fname, len) == 0 
+				|| strncmp("popen", fname, len) == 0) {
 				zval *cmd = ZEND_CALL_ARG(ex, arg_count);
 				if (IS_STRING == Z_TYPE_P(cmd) && TAINT_POSSIBLE(Z_STR_P(cmd))) {
 					php_taint_error(fname, "CMD statement contains data that might be tainted");
@@ -1112,6 +1128,7 @@ static int php_taint_fcall_handler(zend_execute_data *execute_data) /* {{{ */ {
 
 static void php_taint_register_handlers() /* {{{ */ {
 	zend_set_user_opcode_handler(ZEND_ECHO, php_taint_echo_handler);
+	zend_set_user_opcode_handler(ZEND_EXIT, php_taint_exit_handler);
 	zend_set_user_opcode_handler(ZEND_INCLUDE_OR_EVAL, php_taint_include_or_eval_handler);
 	zend_set_user_opcode_handler(ZEND_CONCAT, php_taint_concat_handler);
 	zend_set_user_opcode_handler(ZEND_FAST_CONCAT, php_taint_concat_handler);

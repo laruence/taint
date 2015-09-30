@@ -13,10 +13,10 @@ $b = isset($a)? $a : 0;
 echo $b;
 
 $b .= isset($a)? "xxxx" : 0; //a knew mem leak
-echo $b;
+exit($b);
 ?>
 --EXPECTF--
 Warning: main() [echo]: Attempt to echo a string that might be tainted in %s003.php on line %d
 tainted string.
-Warning: main() [echo]: Attempt to echo a string that might be tainted in %s003.php on line %d
+Warning: main() [exit]: Attempt to output a string that might be tainted in %s003.php on line %d
 tainted string.xxxx
