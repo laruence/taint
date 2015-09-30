@@ -4,7 +4,6 @@ Bug #63100 (array_walk_recursive behaves wrongly when taint enabled)
 <?php if (!extension_loaded("taint")) print "skip"; ?>
 --INI--
 taint.enable=1
-report_memleaks=0
 --FILE--
 <?php 
 $a = array();

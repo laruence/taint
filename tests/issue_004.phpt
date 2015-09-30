@@ -4,7 +4,6 @@ ISSUE #4 (wrong op fetched)
 <?php if (!extension_loaded("taint")) print "skip"; ?>
 --INI--
 taint.enable=1
-report_memleaks=0
 --FILE--
 <?php
 function dummy(&$a) {

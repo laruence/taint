@@ -4,7 +4,6 @@ Check Taint with send_var/send_ref
 <?php if (!extension_loaded("taint")) print "skip"; ?>
 --INI--
 taint.enable=1
-report_memleaks=Off
 --FILE--
 <?php 
 $a = "tainted string" . ".";
@@ -35,15 +34,15 @@ test2($c);
 
 ?>
 --EXPECTF--
-Warning: test1(): Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
 tainted string.
-Warning: test2(): Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
 tainted string.
-Warning: test1(): Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
 tainted string.
-Warning: test2(): Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
 tainted string.
-Warning: test1(): Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
 tainted string.
-Warning: test2(): Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
 tainted string.

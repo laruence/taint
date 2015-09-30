@@ -18,7 +18,7 @@ main();
 echo $var;
 ?>
 --EXPECTF--
-Warning: main(): Attempt to echo a string that might be tainted in %s011.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s011.php on line %d
 tainted string.
-Warning: main(): Attempt to echo a string that might be tainted in %s011.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s011.php on line %d
 tainted string.

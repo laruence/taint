@@ -16,7 +16,7 @@ $b .= isset($a)? "xxxx" : 0; //a knew mem leak
 echo $b;
 ?>
 --EXPECTF--
-Warning: main(): Attempt to echo a string that might be tainted in %s003.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s003.php on line %d
 tainted string.
-Warning: main(): Attempt to echo a string that might be tainted in %s003.php on line %d
+Warning: echo: Attempt to echo a string that might be tainted in %s003.php on line %d
 tainted string.xxxx

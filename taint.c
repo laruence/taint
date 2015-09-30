@@ -131,6 +131,10 @@ static zval *php_taint_get_zval_ptr_tmpvar(zend_execute_data *execute_data, uint
 }
 /* }}} */	
 
+#ifndef CV_DEF_OF
+#define CV_DEF_OF(i) (EX(func)->op_array.vars[i])
+#endif
+
 static zval *php_taint_get_zval_ptr_cv(zend_execute_data *execute_data, uint32_t var, int type, int force_ret) /* {{{ */ {
 	zval *ret = EX_VAR(var);
 
@@ -139,12 +143,12 @@ static zval *php_taint_get_zval_ptr_cv(zend_execute_data *execute_data, uint32_t
 			switch (type) {
 				case BP_VAR_R:
 				case BP_VAR_UNSET:
-					zend_error(E_NOTICE, "Undefined variable: %s", CV_DEF_OF(EX_VAR_TO_NUM(var)));
+					zend_error(E_NOTICE, "Undefined variable: %s", ZSTR_VAL(CV_DEF_OF(EX_VAR_TO_NUM(var))));
 				case BP_VAR_IS:
 					ret = &EG(uninitialized_zval);
 					break;
 				case BP_VAR_RW:
-					zend_error(E_NOTICE, "Undefined variable: %s", CV_DEF_OF(EX_VAR_TO_NUM(var)));
+					zend_error(E_NOTICE, "Undefined variable: %s", ZSTR_VAL(CV_DEF_OF(EX_VAR_TO_NUM(var))));
 				case BP_VAR_W:
 					ZVAL_NULL(ret);
 					break;
@@ -192,14 +196,19 @@ static zval *php_taint_get_zval_ptr_ptr(zend_execute_data *execute_data, int op_
 	if (op_type == IS_CV) {
 		*should_free = NULL;
 		return php_taint_get_zval_ptr_cv(execute_data, op.var, type, 1);
-	} else {
+	} else if (op_type == IS_VAR) {
 		ZEND_ASSERT(op_type == IS_VAR);
 		return php_taint_get_zval_ptr_ptr_var(execute_data, op.var, should_free);
+	} else if (op_type == IS_UNUSED) {
+		*should_free = NULL;
+		return &EX(This);
+	} else {
+		ZEND_ASSERT(0);
 	}
 }
 /* }}} */
 
-static void php_taint_error(const char *fname, const char *format, ...) /* {{{ */ {
+static void php_taint_error(const char *fname, const char *braces, const char *format, ...) /* {{{ */ {
 	char *buffer, *msg;
 	va_list args;
 
@@ -208,349 +217,12 @@ static void php_taint_error(const char *fname, const char *format, ...) /* {{{ *
 	if (!fname) {
 		fname = get_active_function_name();
 	}
-	spprintf(&msg, 0, "%s(): %s", fname, buffer);
+	spprintf(&msg, 0, "%s%s: %s", fname, braces, buffer);
 	efree(buffer);
 	zend_error(TAINT_G(error_level), msg);
 	efree(msg);
 	va_end(args);
 } /* }}} */
-
-#if 0
-static zval **php_taint_fetch_dimension_address_inner(HashTable *ht, zval *dim, int dim_type, int type) /* {{{ */ {
-	zval **retval;
-	char *offset_key;
-	int offset_key_length;
-	ulong hval;
-
-	switch (dim->type) {
-		case IS_NULL:
-			offset_key = "";
-			offset_key_length = 0;
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION > 3)
-			hval = zend_inline_hash_func("", 1);
-#endif
-			goto fetch_string_dim;
-
-		case IS_STRING:
-			offset_key = dim->value.str.val;
-			offset_key_length = dim->value.str.len;
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION > 3)
-			if (dim_type == IS_CONST) {
-				hval = Z_HASH_P(dim);
-			} else {
-				ZEND_HANDLE_NUMERIC_EX(offset_key, offset_key_length+1, hval, goto num_index);
-				if (IS_INTERNED(offset_key)) {
-					hval = INTERNED_HASH(offset_key);
-				} else {
-					hval = zend_hash_func(offset_key, offset_key_length+1);
-				}
-			}
-#endif
-
-fetch_string_dim:
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
-			if (zend_symtable_find(ht, offset_key, offset_key_length+1, (void **) &retval) == FAILURE) {
-#else
-				if (zend_hash_quick_find(ht, offset_key, offset_key_length+1, hval, (void **) &retval) == FAILURE) {
-#endif
-					switch (type) {
-						case BP_VAR_R:
-							zend_error(E_NOTICE, "Undefined index: %s", offset_key);
-							/* break missing intentionally */
-						case BP_VAR_UNSET:
-						case BP_VAR_IS:
-							retval = &EG(uninitialized_zval_ptr);
-							break;
-						case BP_VAR_RW:
-							zend_error(E_NOTICE,"Undefined index: %s", offset_key);
-							/* break missing intentionally */
-						case BP_VAR_W: {
-										   zval *new_zval = &EG(uninitialized_zval);
-										   Z_ADDREF_P(new_zval);
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
-										   zend_symtable_update(ht, offset_key, offset_key_length+1, &new_zval, sizeof(zval *), (void **) &retval);
-#else
-										   zend_hash_quick_update(ht, offset_key, offset_key_length+1, hval, &new_zval, sizeof(zval *), (void **) &retval);
-#endif
-									   }
-									   break;
-					}
-				}
-#if 0
-			}
-#endif
-			break;
-		case IS_DOUBLE:
-			hval = zend_dval_to_lval(Z_DVAL_P(dim));
-			goto num_index;
-		case IS_RESOURCE:
-			zend_error(E_STRICT, "Resource ID#%ld used as offset, casting to integer (%ld)", Z_LVAL_P(dim), Z_LVAL_P(dim));
-			/* Fall Through */
-		case IS_BOOL:
-		case IS_LONG:
-			hval = Z_LVAL_P(dim);
-num_index:
-			if (zend_hash_index_find(ht, hval, (void **) &retval) == FAILURE) {
-				switch (type) {
-					case BP_VAR_R:
-						zend_error(E_NOTICE,"Undefined offset: %ld", hval);
-						/* break missing intentionally */
-					case BP_VAR_UNSET:
-					case BP_VAR_IS:
-						retval = &EG(uninitialized_zval_ptr);
-						break;
-					case BP_VAR_RW:
-						zend_error(E_NOTICE,"Undefined offset: %ld", hval);
-						/* break missing intentionally */
-					case BP_VAR_W: {
-									   zval *new_zval = &EG(uninitialized_zval);
-
-									   Z_ADDREF_P(new_zval);
-									   zend_hash_index_update(ht, hval, &new_zval, sizeof(zval *), (void **) &retval);
-								   }
-								   break;
-				}
-			}
-			break;
-
-		default:
-			zend_error(E_WARNING, "Illegal offset type");
-			return (type == BP_VAR_W || type == BP_VAR_RW) ?
-				&EG(error_zval_ptr) : &EG(uninitialized_zval_ptr);
-	}
-	return retval;
-} /* }}} */
-
-static int php_taint_binary_assign_op_obj_helper(int (*binary_op)(zval *result, zval *op1, zval *op2), zend_execute_data *execute_data) /* {{{ */ {
-	zend_op *opline = execute_data->opline;
-	zend_op *op_data = opline+1;
-	taint_free_op free_op1 = {0}, free_op2 = {0}, free_op_data1 = {0};
-	zval **object_ptr = NULL, *object = NULL, *property = NULL;
-	int have_get_ptr = 0;
-	uint tainted = 0;
-
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
-	zval *value = php_taint_get_zval_ptr(&op_data->op1, execute_data->Ts, &free_op_data1, BP_VAR_R);
-#elif (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 5)
-	zval *value = php_taint_get_zval_ptr((opline+1)->op1_type, &(opline+1)->op1, execute_data, &free_op_data1, BP_VAR_R);
-#else
-	zval *value = php_taint_get_zval_ptr((opline+1)->op1_type, &(opline+1)->op1, execute_data->Ts, &free_op_data1, BP_VAR_R);
-#endif
-	zval **retval = &TAINT_T(TAINT_RESULT_VAR(opline)).var.ptr;
-
-	switch (TAINT_OP1_TYPE(opline)) {
-		case IS_VAR:
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 5)
-			object_ptr = php_taint_get_zval_ptr_ptr_var(TAINT_OP1_NODE_PTR(opline), execute_data, &free_op1);
-#else
-			object_ptr = php_taint_get_zval_ptr_ptr_var(TAINT_OP1_NODE_PTR(opline), execute_data->Ts, &free_op1);
-#endif
-			if (!object_ptr) {
-				zend_error(E_ERROR, "Cannot use string offset as an object");
-				return 0;
-			}
-			break;
-		case IS_CV:
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
-			object_ptr = php_taint_get_zval_ptr_ptr_cv(&opline->op1, execute_data->Ts, BP_VAR_W);
-#else
-			object_ptr = php_taint_get_zval_ptr_ptr_cv(opline->op1.var, BP_VAR_W);
-#endif
-			break;
-		case IS_UNUSED:
-			object_ptr = php_taint_get_obj_zval_ptr_ptr_unused();
-			break;
-		default:
-			/* do nothing */
-			break;
-	}
-
-	switch(TAINT_OP2_TYPE(opline)) {
-		case IS_TMP_VAR:
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 5)
-			property = php_taint_get_zval_ptr_tmp(TAINT_OP2_NODE_PTR(opline), execute_data, &free_op2);
-#else
-			property = php_taint_get_zval_ptr_tmp(TAINT_OP2_NODE_PTR(opline), execute_data->Ts, &free_op2);
-#endif
-			break;
-		case IS_VAR:
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 5)
-			property = php_taint_get_zval_ptr_tmp(TAINT_OP2_NODE_PTR(opline), execute_data, &free_op2);
-#else
-			property = php_taint_get_zval_ptr_tmp(TAINT_OP2_NODE_PTR(opline), execute_data->Ts, &free_op2);
-#endif
-			break;
-		case IS_CV:
-			property = php_taint_get_zval_ptr_cv(TAINT_OP2_NODE_PTR(opline), TAINT_GET_ZVAL_PTR_CV_2ND_ARG(BP_VAR_R));
-			break;
-		case IS_CONST:
-			property = TAINT_OP2_CONSTANT_PTR(opline);
-			break;
-		case IS_UNUSED:
-			property = NULL;
-			break;
-		default:
-			/* do nothing */
-			break;
-	}
-
-	TAINT_T(TAINT_RESULT_VAR(opline)).var.ptr_ptr = NULL;
-	make_real_object(object_ptr);
-	object = *object_ptr;
-
-	if (Z_TYPE_P(object) != IS_OBJECT) {
-		zend_error(E_WARNING, "Attempt to assign property of non-object");
-		switch(TAINT_OP2_TYPE(opline)) {
-			case IS_TMP_VAR:
-				zval_dtor(free_op2.var);
-				break;
-			case IS_VAR:
-				if (free_op2.var) {zval_ptr_dtor(&free_op2.var);};
-				break;
-			case IS_CV:
-			case IS_CONST:
-			case IS_UNUSED:
-			default:
-				/* do nothing */
-				break;
-		}
-		TAINT_FREE_OP(free_op_data1);
-
-		if (TAINT_RETURN_VALUE_USED(opline)) {
-			*retval = EG(uninitialized_zval_ptr);
-			Z_ADDREF_P(*retval);
-		}
-	} else {
-		/* here we are sure we are dealing with an object */
-		if (IS_TMP_VAR == TAINT_OP2_TYPE(opline)) {
-			MAKE_REAL_ZVAL_PTR(property);
-		}
-
-		/* here property is a string */
-		if (opline->extended_value == ZEND_ASSIGN_OBJ
-				&& Z_OBJ_HT_P(object)->get_property_ptr_ptr) {
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
-			zval **zptr = Z_OBJ_HT_P(object)->get_property_ptr_ptr(object, property);
-#elif (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 5)
-			zval **zptr = Z_OBJ_HT_P(object)->get_property_ptr_ptr(object, property, BP_VAR_RW, ((TAINT_OP2_TYPE(opline) == IS_CONST) ? opline->op2.literal : NULL));
-#else
-			zval **zptr = Z_OBJ_HT_P(object)->get_property_ptr_ptr(object, property, ((IS_CONST == IS_CONST) ? opline->op2.literal : NULL));
-#endif
-			if (zptr != NULL) { 			/* NULL means no success in getting PTR */
-				if ((*zptr && IS_STRING == Z_TYPE_PP(zptr) && Z_STRLEN_PP(zptr) && TAINT_POSSIBLE(*zptr)) 
-						|| (value && IS_STRING == Z_TYPE_P(value) && Z_STRLEN_P(value) && TAINT_POSSIBLE(value))){
-					tainted = 1;
-				}
-
-				SEPARATE_ZVAL_IF_NOT_REF(zptr);
-				have_get_ptr = 1;
-
-				binary_op(*zptr, *zptr, value);
-				if (tainted && IS_STRING == Z_TYPE_PP(zptr) && Z_STRLEN_PP(zptr)) {
-					Z_STRVAL_PP(zptr) = erealloc(Z_STRVAL_PP(zptr), Z_STRLEN_PP(zptr) + 1 + PHP_TAINT_MAGIC_LENGTH);
-					TAINT_MARK(*zptr, PHP_TAINT_MAGIC_POSSIBLE);
-				}
-				if (TAINT_RETURN_VALUE_USED(opline)) {
-					*retval = *zptr;
-					Z_ADDREF_P(*retval);
-				}
-			}
-		}
-
-		if (!have_get_ptr) {
-			zval *z = NULL;
-
-			switch (opline->extended_value) {
-				case ZEND_ASSIGN_OBJ:
-					if (Z_OBJ_HT_P(object)->read_property) {
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
-						z = Z_OBJ_HT_P(object)->read_property(object, property, BP_VAR_R);
-#else
-						z = Z_OBJ_HT_P(object)->read_property(object, property, BP_VAR_R, ((TAINT_OP2_TYPE(opline) == IS_CONST) ? opline->op2.literal : NULL));
-#endif
-					}
-					break;
-				case ZEND_ASSIGN_DIM:
-					if (Z_OBJ_HT_P(object)->read_dimension) {
-						z = Z_OBJ_HT_P(object)->read_dimension(object, property, BP_VAR_R);
-					}
-					break;
-			}
-			if (z) {
-				if (Z_TYPE_P(z) == IS_OBJECT && Z_OBJ_HT_P(z)->get) {
-					zval *value = Z_OBJ_HT_P(z)->get(z);
-
-					if (Z_REFCOUNT_P(z) == 0) {
-						zval_dtor(z);
-						FREE_ZVAL(z);
-					}
-					z = value;
-				}
-				Z_ADDREF_P(z);
-				if ((z && IS_STRING == Z_TYPE_P(z) && Z_STRLEN_P(z) && TAINT_POSSIBLE(z)) 
-						|| (value && IS_STRING == Z_TYPE_P(value) && Z_STRLEN_P(value) && TAINT_POSSIBLE(value))) {
-					tainted = 1;
-				}
-
-				SEPARATE_ZVAL_IF_NOT_REF(&z);
-				binary_op(z, z, value);
-				if (tainted && IS_STRING == Z_TYPE_P(z) && Z_STRLEN_P(z)) {
-					Z_STRVAL_P(z) = erealloc(Z_STRVAL_P(z), Z_STRLEN_P(z) + 1 + PHP_TAINT_MAGIC_LENGTH);
-					TAINT_MARK(z, PHP_TAINT_MAGIC_POSSIBLE);
-				}
-
-				switch (opline->extended_value) {
-					case ZEND_ASSIGN_OBJ:
-#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
-						Z_OBJ_HT_P(object)->write_property(object, property, z);
-#else
-						Z_OBJ_HT_P(object)->write_property(object, property, z, ((TAINT_OP2_TYPE(opline) == IS_CONST) ? opline->op2.literal : NULL));
-#endif
-						break;
-					case ZEND_ASSIGN_DIM:
-						Z_OBJ_HT_P(object)->write_dimension(object, property, z);
-						break;
-				}
-				if (TAINT_RETURN_VALUE_USED(opline)) {
-					*retval = z;
-					Z_ADDREF_P(*retval);
-				}
-				zval_ptr_dtor(&z);
-			} else {
-				zend_error(E_WARNING, "Attempt to assign property of non-object");
-				if (TAINT_RETURN_VALUE_USED(opline)) {
-					*retval = EG(uninitialized_zval_ptr);
-					Z_ADDREF_P(*retval);
-				}
-			}
-		}
-
-		switch(TAINT_OP2_TYPE(opline)) {
-			case IS_TMP_VAR:
-				zval_ptr_dtor(&property);
-				break;
-			case IS_VAR:
-				if (free_op2.var) {zval_ptr_dtor(&free_op2.var);};
-				break;
-			case IS_CV:
-			case IS_CONST:
-			case IS_UNUSED:
-			default:
-				/* do nothing */
-				break;
-		}
-
-		TAINT_FREE_OP(free_op_data1);
-	}
-
-	if (IS_VAR == TAINT_OP1_TYPE(opline) && free_op1.var) {zval_ptr_dtor(&free_op1.var);};
-	/* assign_obj has two opcodes! */
-	execute_data->opline++;
-	execute_data->opline++;
-	return ZEND_USER_OPCODE_CONTINUE; 
-} /* }}} */ 
-#endif
-
 
 static int php_taint_echo_handler(zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
@@ -560,10 +232,10 @@ static int php_taint_echo_handler(zend_execute_data *execute_data) /* {{{ */ {
 	op1 = php_taint_get_zval_ptr(execute_data, opline->op1_type, opline->op1, &free_op1, BP_VAR_R, 0);
 
 	if (op1 && IS_STRING == Z_TYPE_P(op1) && TAINT_POSSIBLE(Z_STR_P(op1))) {
-		if (opline->extended_value == ZEND_PRINT) {
-			php_taint_error(NULL, "Attempt to print a string that might be tainted");
+		if (opline->extended_value) {
+			php_taint_error("print", "", "Attempt to print a string that might be tainted");
 		} else {
-			php_taint_error(NULL, "Attempt to echo a string that might be tainted");
+			php_taint_error("echo", "", "Attempt to echo a string that might be tainted");
 		}
 	}
 
@@ -580,19 +252,19 @@ static int php_taint_include_or_eval_handler(zend_execute_data *execute_data) /*
 	if ((op1 && IS_STRING == Z_TYPE_P(op1) && TAINT_POSSIBLE(Z_STR_P(op1))))
 		switch (opline->extended_value) {
 			case ZEND_INCLUDE_ONCE:
-				php_taint_error("include_once", "File path contains data that might be tainted");
+				php_taint_error("include_once", "", "File path contains data that might be tainted");
 				break;
 			case ZEND_REQUIRE_ONCE:
-				php_taint_error("require_once", "File path contains data that might be tainted");
+				php_taint_error("require_once", "", "File path contains data that might be tainted");
 				break;
 			case ZEND_INCLUDE:
-				php_taint_error("include", "File path contains data that might be tainted");
+				php_taint_error("include", "", "File path contains data that might be tainted");
 				break;
 			case ZEND_REQUIRE:
-				php_taint_error("require", "File path contains data that might be tainted");
+				php_taint_error("require", "", "File path contains data that might be tainted");
 				break;
 			case ZEND_EVAL:
-				php_taint_error("eval", "Eval code contains data that might be tainted");
+				php_taint_error("eval", "", "Code contains data that might be tainted");
 				break;
 		}
 
@@ -601,7 +273,7 @@ static int php_taint_include_or_eval_handler(zend_execute_data *execute_data) /*
 
 static int php_taint_rope_handler(zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
-	zval *op1, *op2, *result;
+	zval *op2, *result;
 	taint_free_op free_op2;
 	zend_string **rope;
 	char *target;
@@ -675,15 +347,371 @@ static int php_taint_concat_handler(zend_execute_data *execute_data) /* {{{ */ {
 	return ZEND_USER_OPCODE_CONTINUE;
 } /* }}} */
 
+/* These are most copied from zend_execute.c: zend_fetch_dimension_address */
+static int php_taint_make_real_object(zval *object) /* {{{ */ {
+	if (UNEXPECTED(Z_TYPE_P(object) != IS_OBJECT)) {
+		if (EXPECTED(Z_TYPE_P(object) <= IS_FALSE)) {
+			/* nothing to destroy */
+		} else if (EXPECTED((Z_TYPE_P(object) == IS_STRING && Z_STRLEN_P(object) == 0))) {
+			zval_ptr_dtor_nogc(object);
+		} else {
+			return 0;
+		}
+		object_init(object);
+		zend_error(E_WARNING, "Creating default object from empty value");
+	}
+	return 1;
+}
+/* }}} */
+
+static zend_long php_taint_check_string_offset(zval *dim, int type) /* {{{ */ {
+	zend_long offset;
+
+try_again:
+	if (UNEXPECTED(Z_TYPE_P(dim) != IS_LONG)) {
+		switch(Z_TYPE_P(dim)) {
+			case IS_STRING:
+				if (IS_LONG == is_numeric_string(Z_STRVAL_P(dim), Z_STRLEN_P(dim), NULL, NULL, -1)) {
+					break;
+				}
+				if (type != BP_VAR_UNSET) {
+					zend_error(E_WARNING, "Illegal string offset '%s'", Z_STRVAL_P(dim));
+				}
+				break;
+			case IS_DOUBLE:
+			case IS_NULL:
+			case IS_FALSE:
+			case IS_TRUE:
+				zend_error(E_NOTICE, "String offset cast occurred");
+				break;
+			case IS_REFERENCE:
+				dim = Z_REFVAL_P(dim);
+				goto try_again;
+			default:
+				zend_error(E_WARNING, "Illegal offset type");
+				break;
+		}
+
+		offset = zval_get_long(dim);
+	} else {
+		offset = Z_LVAL_P(dim);
+	}
+
+	return offset;
+}
+/* }}} */
+
+static zval *php_taint_fetch_dimension_address_inner(HashTable *ht, const zval *dim, int dim_type, int type) /* {{{ */ {
+	zval *retval;
+	zend_string *offset_key;
+	zend_ulong hval;
+
+try_again:
+	if (EXPECTED(Z_TYPE_P(dim) == IS_LONG)) {
+		hval = Z_LVAL_P(dim);
+num_index:
+		retval = zend_hash_index_find(ht, hval);
+		if (retval == NULL) {
+			switch (type) {
+				case BP_VAR_R:
+					zend_error(E_NOTICE,"Undefined offset: " ZEND_LONG_FMT, hval);
+					/* break missing intentionally */
+				case BP_VAR_UNSET:
+				case BP_VAR_IS:
+					retval = &EG(uninitialized_zval);
+					break;
+				case BP_VAR_RW:
+					zend_error(E_NOTICE,"Undefined offset: " ZEND_LONG_FMT, hval);
+					/* break missing intentionally */
+				case BP_VAR_W:
+					retval = zend_hash_index_add_new(ht, hval, &EG(uninitialized_zval));
+					break;
+			}
+		}
+	} else if (EXPECTED(Z_TYPE_P(dim) == IS_STRING)) {
+		offset_key = Z_STR_P(dim);
+		if (dim_type != IS_CONST) {
+			if (ZEND_HANDLE_NUMERIC(offset_key, hval)) {
+				goto num_index;
+			}
+		}
+str_index:
+		retval = zend_hash_find(ht, offset_key);
+		if (retval) {
+			/* support for $GLOBALS[...] */
+			if (UNEXPECTED(Z_TYPE_P(retval) == IS_INDIRECT)) {
+				retval = Z_INDIRECT_P(retval);
+				if (UNEXPECTED(Z_TYPE_P(retval) == IS_UNDEF)) {
+					switch (type) {
+						case BP_VAR_R:
+							zend_error(E_NOTICE, "Undefined index: %s", ZSTR_VAL(offset_key));
+							/* break missing intentionally */
+						case BP_VAR_UNSET:
+						case BP_VAR_IS:
+							retval = &EG(uninitialized_zval);
+							break;
+						case BP_VAR_RW:
+							zend_error(E_NOTICE,"Undefined index: %s", ZSTR_VAL(offset_key));
+							/* break missing intentionally */
+						case BP_VAR_W:
+							ZVAL_NULL(retval);
+							break;
+					}
+				}
+			}
+		} else {
+			switch (type) {
+				case BP_VAR_R:
+					zend_error(E_NOTICE, "Undefined index: %s", ZSTR_VAL(offset_key));
+					/* break missing intentionally */
+				case BP_VAR_UNSET:
+				case BP_VAR_IS:
+					retval = &EG(uninitialized_zval);
+					break;
+				case BP_VAR_RW:
+					zend_error(E_NOTICE,"Undefined index: %s", ZSTR_VAL(offset_key));
+					/* break missing intentionally */
+				case BP_VAR_W:
+					retval = zend_hash_add_new(ht, offset_key, &EG(uninitialized_zval));
+					break;
+			}
+		}
+	} else {
+		switch (Z_TYPE_P(dim)) {
+			case IS_NULL:
+				offset_key = ZSTR_EMPTY_ALLOC();
+				goto str_index;
+			case IS_DOUBLE:
+				hval = zend_dval_to_lval(Z_DVAL_P(dim));
+				goto num_index;
+			case IS_RESOURCE:
+				zend_error(E_NOTICE, "Resource ID#%pd used as offset, casting to integer (%pd)", Z_RES_HANDLE_P(dim), Z_RES_HANDLE_P(dim));
+				hval = Z_RES_HANDLE_P(dim);
+				goto num_index;
+			case IS_FALSE:
+				hval = 0;
+				goto num_index;
+			case IS_TRUE:
+				hval = 1;
+				goto num_index;
+			case IS_REFERENCE:
+				dim = Z_REFVAL_P(dim);
+				goto try_again;
+			default:
+				zend_error(E_WARNING, "Illegal offset type");
+				retval = (type == BP_VAR_W || type == BP_VAR_RW) ?
+					&EG(error_zval) : &EG(uninitialized_zval);
+		}
+	}
+	return retval;
+}
+/* }}} */
+
+static void php_taint_fetch_dimension_address(zval *result, zval *container, zval *dim, int dim_type, int type) /* {{{ */ {
+	zval *retval;
+
+	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
+try_array:
+		SEPARATE_ARRAY(container);
+fetch_from_array:
+		if (dim == NULL) {
+			retval = zend_hash_next_index_insert(Z_ARRVAL_P(container), &EG(uninitialized_zval));
+			if (UNEXPECTED(retval == NULL)) {
+				zend_error(E_WARNING, "Cannot add element to the array as the next element is already occupied");
+				retval = &EG(error_zval);
+			}
+		} else {
+			retval = php_taint_fetch_dimension_address_inner(Z_ARRVAL_P(container), dim, dim_type, type);
+		}
+		ZVAL_INDIRECT(result, retval);
+		return;
+	} else if (EXPECTED(Z_TYPE_P(container) == IS_REFERENCE)) {
+		container = Z_REFVAL_P(container);
+		if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
+			goto try_array;
+		}
+	}
+	if (EXPECTED(Z_TYPE_P(container) == IS_STRING)) {
+		if (type != BP_VAR_UNSET && UNEXPECTED(Z_STRLEN_P(container) == 0)) {
+			zval_ptr_dtor_nogc(container);
+convert_to_array:
+			ZVAL_NEW_ARR(container);
+			zend_hash_init(Z_ARRVAL_P(container), 8, NULL, ZVAL_PTR_DTOR, 0);
+			goto fetch_from_array;
+		}
+
+		if (dim == NULL) {
+			zend_throw_error(NULL, "[] operator not supported for strings");
+			ZVAL_INDIRECT(result, &EG(error_zval));
+		} else {
+			php_taint_check_string_offset(dim, type);
+			ZVAL_INDIRECT(result, NULL); /* wrong string offset */
+		}
+	} else if (EXPECTED(Z_TYPE_P(container) == IS_OBJECT)) {
+		if (!Z_OBJ_HT_P(container)->read_dimension) {
+			zend_throw_error(NULL, "Cannot use object as array");
+			retval = &EG(error_zval);
+		} else {
+			retval = Z_OBJ_HT_P(container)->read_dimension(container, dim, type, result);
+
+			if (UNEXPECTED(retval == &EG(uninitialized_zval))) {
+				zend_class_entry *ce = Z_OBJCE_P(container);
+
+				ZVAL_NULL(result);
+				zend_error(E_NOTICE, "Indirect modification of overloaded element of %s has no effect", ZSTR_VAL(ce->name));
+			} else if (EXPECTED(retval && Z_TYPE_P(retval) != IS_UNDEF)) {
+				if (!Z_ISREF_P(retval)) {
+					if (Z_REFCOUNTED_P(retval) &&
+							Z_REFCOUNT_P(retval) > 1) {
+						if (Z_TYPE_P(retval) != IS_OBJECT) {
+							Z_DELREF_P(retval);
+							ZVAL_DUP(result, retval);
+							retval = result;
+						} else {
+							ZVAL_COPY_VALUE(result, retval);
+							retval = result;
+						}
+					}
+					if (Z_TYPE_P(retval) != IS_OBJECT) {
+						zend_class_entry *ce = Z_OBJCE_P(container);
+						zend_error(E_NOTICE, "Indirect modification of overloaded element of %s has no effect", ZSTR_VAL(ce->name));
+					}
+				} else if (UNEXPECTED(Z_REFCOUNT_P(retval) == 1)) {
+					ZVAL_UNREF(retval);
+				}
+				if (result != retval) {
+					ZVAL_INDIRECT(result, retval);
+				}
+			} else {
+				ZVAL_INDIRECT(result, &EG(error_zval));
+			}
+		}
+	} else if (EXPECTED(Z_TYPE_P(container) <= IS_FALSE)) {
+		if (UNEXPECTED(container == &EG(error_zval))) {
+			ZVAL_INDIRECT(result, &EG(error_zval));
+		} else if (type != BP_VAR_UNSET) {
+			goto convert_to_array;
+		} else {
+			/* for read-mode only */
+			ZVAL_NULL(result);
+		}
+	} else {
+		if (type == BP_VAR_UNSET) {
+			zend_error(E_WARNING, "Cannot unset offset in a non-array variable");
+			ZVAL_NULL(result);
+		} else {
+			zend_error(E_WARNING, "Cannot use a scalar value as an array");
+			ZVAL_INDIRECT(result, &EG(error_zval));
+		}
+	}
+}
+/* }}} */
+
+static void php_taint_assign_op_overloaded_property(zval *object, zval *property, void **cache_slot, zval *value, binary_op_type binary_op, zval *result) /* {{{ */ {
+	zval *z;
+	zval rv, obj;
+	zval *zptr;
+	int tainted = 0;
+
+	ZVAL_OBJ(&obj, Z_OBJ_P(object));
+	Z_ADDREF(obj);
+	if (Z_OBJ_HT(obj)->read_property &&
+		(z = Z_OBJ_HT(obj)->read_property(&obj, property, BP_VAR_R, cache_slot, &rv)) != NULL) {
+		if (EG(exception)) {
+			OBJ_RELEASE(Z_OBJ(obj));
+			return;
+		}
+		if (Z_TYPE_P(z) == IS_OBJECT && Z_OBJ_HT_P(z)->get) {
+			zval rv2;
+			zval *value = Z_OBJ_HT_P(z)->get(z, &rv2);
+
+			if (z == &rv) {
+				zval_ptr_dtor(&rv);
+			}
+			ZVAL_COPY_VALUE(z, value);
+		}
+		zptr = z;
+		ZVAL_DEREF(z);
+		SEPARATE_ZVAL_NOREF(z);
+		if (Z_TYPE_P(z) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(z))) {
+			tainted = 1;
+		} else if (Z_TYPE_P(value) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(value))) {
+			tainted = 1;
+		}
+		binary_op(z, z, value);
+		Z_OBJ_HT(obj)->write_property(&obj, property, z, cache_slot);
+		if (result) {
+			ZVAL_COPY(result, z);
+		}
+		if (tainted && Z_TYPE_P(z) == IS_STRING && Z_STRLEN_P(z)) {
+			TAINT_MARK(Z_STR_P(z));
+		}
+		zval_ptr_dtor(zptr);
+	} else {
+		zend_error(E_WARNING, "Attempt to assign property of non-object");
+		if (result) {
+			ZVAL_NULL(result);
+		}
+	}
+	OBJ_RELEASE(Z_OBJ(obj));
+}
+/* }}} */
+
+static void php_taint_binary_assign_op_obj_dim(zval *object, zval *property, zval *value, zval *retval, binary_op_type binary_op) /* {{{ */ {
+	zval *z;
+	zval rv, res;
+	int tainted = 0;
+
+	if (Z_OBJ_HT_P(object)->read_dimension &&
+		(z = Z_OBJ_HT_P(object)->read_dimension(object, property, BP_VAR_R, &rv)) != NULL) {
+
+		if (Z_TYPE_P(z) == IS_OBJECT && Z_OBJ_HT_P(z)->get) {
+			zval rv2;
+			zval *value = Z_OBJ_HT_P(z)->get(z, &rv2);
+
+			if (z == &rv) {
+				zval_ptr_dtor(&rv);
+			}
+			ZVAL_COPY_VALUE(z, value);
+		}
+		if ((Z_TYPE_P(z) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(z))) ||
+			(Z_TYPE_P(z) == IS_REFERENCE && IS_STRING == Z_TYPE_P(Z_REFVAL_P(z)) &&
+			 TAINT_POSSIBLE(Z_STR_P(Z_REFVAL_P(z))))) {
+			tainted = 1;
+		} else if (Z_TYPE_P(value) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(value))) {
+			tainted = 1;
+		}
+
+		binary_op(&res, Z_ISREF_P(z) ? Z_REFVAL_P(z) : z, value);
+		Z_OBJ_HT_P(object)->write_dimension(object, property, &res);
+		if (z == &rv) {
+			zval_ptr_dtor(&rv);
+		}
+		if (retval) {
+			ZVAL_COPY(retval, &res);
+		}
+		if (tainted && Z_TYPE(res) == IS_STRING && Z_STRLEN(res)) {
+			TAINT_MARK(Z_STR(res));
+		}
+		zval_ptr_dtor(&res);
+	} else {
+		zend_error(E_WARNING, "Attempt to assign property of non-object");
+		if (retval) {
+			ZVAL_NULL(retval);
+		}
+	}
+}
+/* }}} */
+/* Copied codes end */
+
 static int php_taint_binary_assign_op_helper(int (*binary_op)(zval *result, zval *op1, zval *op2), zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
-	zval *result, *var_ptr, *value;
+	zval *var_ptr, *value;
 	taint_free_op free_op1, free_op2;
 	int tainted = 0;
 
 	value = php_taint_get_zval_ptr(execute_data, opline->op2_type, opline->op2, &free_op2, BP_VAR_R, 1);
-	var_ptr = php_taint_get_zval_ptr_ptr(execute_data, opline->op1_type, opline->op1, &free_op1, BP_VAR_W);
-	result = EX_VAR(opline->result.var);
+	var_ptr = php_taint_get_zval_ptr_ptr(execute_data, opline->op1_type, opline->op1, &free_op1, BP_VAR_RW);
 
 	if (opline->op1_type == IS_VAR) {
 		if (var_ptr == NULL || var_ptr == &EG(error_zval)) {
@@ -721,17 +749,175 @@ static int php_taint_binary_assign_op_helper(int (*binary_op)(zval *result, zval
 	return ZEND_USER_OPCODE_CONTINUE; 
 } /* }}} */
 
+static int php_taint_binary_assign_op_obj_helper(int (*binary_op)(zval *result, zval *op1, zval *op2), zend_execute_data *execute_data) /* {{{ */ {
+	const zend_op *opline = execute_data->opline;
+	zval *object, *property, *var_ptr, *value;
+	taint_free_op free_op1, free_op2, free_op_data;
+	int tainted = 0;
+
+	object = php_taint_get_zval_ptr_ptr(execute_data, opline->op1_type, opline->op1, &free_op1, BP_VAR_RW);
+	if (opline->op1_type == IS_UNUSED && Z_OBJ_P(object) == NULL) {
+		return ZEND_USER_OPCODE_DISPATCH;
+	}
+	if (opline->op1_type == IS_VAR && object == NULL) {
+		return ZEND_USER_OPCODE_DISPATCH;
+	}
+
+	property = php_taint_get_zval_ptr(execute_data, opline->op2_type, opline->op2, &free_op2, BP_VAR_R, 1);
+
+	do {
+		if (opline->op1_type == IS_UNUSED || Z_TYPE_P(object) != IS_OBJECT) {
+			if (!php_taint_make_real_object(object)) {
+				zend_error(E_WARNING, "Attempt to assign property of non-object");
+				if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+					ZVAL_NULL(EX_VAR(opline->result.var));
+				}
+				break;
+			}
+		}
+
+		value = php_taint_get_zval_ptr(execute_data, (opline + 1)->op1_type, (opline + 1)->op1, &free_op_data, BP_VAR_R, 1);
+
+		if (Z_OBJ_HT_P(object)->get_property_ptr_ptr
+				&& (var_ptr = Z_OBJ_HT_P(object)->get_property_ptr_ptr(object, property, BP_VAR_RW, NULL)) != NULL) {
+			ZVAL_DEREF(var_ptr);
+			SEPARATE_ZVAL_NOREF(var_ptr);
+
+			if (Z_TYPE_P(var_ptr) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(var_ptr))) {
+				tainted = 1;
+			} else if (Z_TYPE_P(value) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(value))) {
+				tainted = 1;
+			}
+
+			binary_op(var_ptr, var_ptr, value);
+			if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+				ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
+			}
+
+			if (tainted && Z_TYPE_P(var_ptr) == IS_STRING && Z_STRLEN_P(var_ptr)) {
+				TAINT_MARK(Z_STR_P(var_ptr));
+			}
+		} else {
+			php_taint_assign_op_overloaded_property(object, property, NULL, value, binary_op, EX_VAR(opline->result.var));
+			if ((opline)->result_type & EXT_TYPE_UNUSED) {
+				zval_ptr_dtor_nogc(EX_VAR(opline->result.var));
+			}
+		}
+	} while (0);
+
+	if ((opline->op2_type & (IS_VAR|IS_TMP_VAR)) && free_op2) {
+		zval_ptr_dtor_nogc(free_op2);
+	}
+	if (((opline + 1)->op1_type & (IS_VAR|IS_TMP_VAR)) && free_op_data)   {
+		zval_ptr_dtor_nogc(free_op_data);
+	}
+	if ((opline->op1_type & (IS_VAR|IS_TMP_VAR)) && free_op1) {
+		zval_ptr_dtor_nogc(free_op1);
+	}
+	execute_data->opline += 2;
+
+	return ZEND_USER_OPCODE_CONTINUE;
+}
+/* }}} */
+
+static int php_taint_binary_assign_op_dim_helper(int (*binary_op)(zval *result, zval *op1, zval *op2), zend_execute_data *execute_data) /* {{{ */ {
+	const zend_op *opline = execute_data->opline;
+	zval *container, *dim, *var_ptr, *value, rv;
+	taint_free_op free_op1, free_op2, free_op_data;
+	int tainted = 0;
+
+	container = php_taint_get_zval_ptr_ptr(execute_data, opline->op1_type, opline->op1, &free_op1, BP_VAR_RW);
+	if (opline->op1_type == IS_UNUSED && Z_OBJ_P(container) == NULL) {
+		return ZEND_USER_OPCODE_DISPATCH;
+	}
+	if (opline->op1_type == IS_VAR && container == NULL) {
+		return ZEND_USER_OPCODE_DISPATCH;
+	}
+
+	dim = php_taint_get_zval_ptr(execute_data, opline->op2_type, opline->op2, &free_op2, BP_VAR_R, 1);
+
+	do {
+		if (opline->op1_type == IS_UNUSED || Z_TYPE_P(container) == IS_OBJECT) {
+			value = php_taint_get_zval_ptr(execute_data, (opline + 1)->op1_type, (opline + 1)->op1, &free_op_data, BP_VAR_R, 1);
+			php_taint_binary_assign_op_obj_dim(container, dim, value, EX_VAR(opline->result.var), binary_op);
+			
+			if ((opline)->result_type & EXT_TYPE_UNUSED) {
+				zval_ptr_dtor_nogc(EX_VAR(opline->result.var));
+			}
+			break;
+		}
+
+		php_taint_fetch_dimension_address(&rv, container, dim, opline->op2_type, BP_VAR_RW);
+		value = php_taint_get_zval_ptr(execute_data, (opline + 1)->op1_type, (opline + 1)->op1, &free_op_data, BP_VAR_R, 1);
+		ZEND_ASSERT(Z_TYPE(rv) == IS_INDIRECT);
+		var_ptr = Z_INDIRECT(rv);
+
+		if (var_ptr == NULL) {
+			zend_throw_error(NULL, "Cannot use assign-op operators with overloaded objects nor string offsets");
+			if ((opline->op2_type & (IS_VAR|IS_TMP_VAR)) && free_op2) {
+				zval_ptr_dtor_nogc(free_op2);
+			}
+			if (((opline + 1)->op1_type & (IS_VAR|IS_TMP_VAR)) && free_op_data)   {
+				zval_ptr_dtor_nogc(free_op_data);
+			}
+			if ((opline->op1_type & (IS_VAR|IS_TMP_VAR)) && free_op1) {
+				zval_ptr_dtor_nogc(free_op1);
+			}
+			execute_data->opline += 2;
+			return ZEND_USER_OPCODE_CONTINUE;
+		}
+
+		if (var_ptr == &EG(error_zval)) {
+			if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+				ZVAL_NULL(EX_VAR(opline->result.var));
+			}
+		} else {
+			ZVAL_DEREF(var_ptr);
+			SEPARATE_ZVAL_NOREF(var_ptr);
+
+			if (Z_TYPE_P(var_ptr) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(var_ptr))) {
+				tainted = 1;
+			} else if (Z_TYPE_P(value) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(value))) {
+				tainted = 1;
+			}
+
+			binary_op(var_ptr, var_ptr, value);
+
+			if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+				ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
+			}
+
+			if (tainted && Z_TYPE_P(var_ptr) == IS_STRING && Z_STRLEN_P(var_ptr)) {
+				TAINT_MARK(Z_STR_P(var_ptr));
+			}
+		}
+	} while (0);
+
+	if ((opline->op2_type & (IS_VAR|IS_TMP_VAR)) && free_op2) {
+		zval_ptr_dtor_nogc(free_op2);
+	}
+	if (((opline + 1)->op1_type & (IS_VAR|IS_TMP_VAR)) && free_op_data)   {
+		zval_ptr_dtor_nogc(free_op_data);
+	}
+	if ((opline->op1_type & (IS_VAR|IS_TMP_VAR)) && free_op1) {
+		zval_ptr_dtor_nogc(free_op1);
+	}
+	execute_data->opline += 2;
+
+	return ZEND_USER_OPCODE_CONTINUE;
+}
+/* }}} */
+
 static int php_taint_assign_concat_handler(zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
 
 	if (EXPECTED(opline->extended_value == 0)) {
 		return php_taint_binary_assign_op_helper(concat_function, execute_data);
 	} else if (EXPECTED(opline->extended_value == ZEND_ASSIGN_DIM)) {
-	//	return php_taint_binary_assign_op_dim_helper(concat_function, execute_data);
+		return php_taint_binary_assign_op_dim_helper(concat_function, execute_data);
 	} else {
-	//	return php_taint_binary_assign_op_obj_helper(concat_function, execute_data);
+		return php_taint_binary_assign_op_obj_helper(concat_function, execute_data);
 	}
-	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
 static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, zend_function *fbc) /* {{{ */ {
@@ -745,7 +931,6 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 		do {
 			const char *fname = ZSTR_VAL(fbc->common.function_name);
 			size_t len = ZSTR_LEN(fbc->common.function_name);
-			zval *p = ZEND_CALL_ARG(ex, 1);
 			if (strncmp("print_r", fname, len) == 0
 					|| strncmp("fopen", fname, len) == 0
 					|| strncmp("opendir", fname, len) == 0
@@ -755,7 +940,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					|| strncmp("file", fname, len) == 0 ) {
 				zval *p = ZEND_CALL_ARG(ex, 1);
 				if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
-					php_taint_error(fname, "First argument contains data that might be tainted");
+					php_taint_error(fname, "()", "First argument contains data that might be tainted");
 				}
 				break;
 			}
@@ -766,7 +951,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					for (i = 0; i < arg_count; i++) {
 						zval *p = ZEND_CALL_ARG(ex, i + 1);
 						if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
-							php_taint_error(fname, "%dth argument contains data that might be tainted", i + 1);
+							php_taint_error(fname, "()", "%dth argument contains data that might be tainted", i + 1);
 							break;
 						}
 					}
@@ -786,9 +971,9 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL_P(p), idx, key, val) {
 						if (IS_STRING == Z_TYPE_P(val) && TAINT_POSSIBLE(Z_STR_P(val))) {
 							if (key) {
-								php_taint_error(fname, "Second argument contains data(index:%s) that might be tainted", ZSTR_VAL(key));
+								php_taint_error(fname, "()", "Second argument contains data(index:%s) that might be tainted", ZSTR_VAL(key));
 							} else {
-								php_taint_error(fname, "Second argument contains data(index:%ld) that might be tainted", idx);
+								php_taint_error(fname, "()", "Second argument contains data(index:%ld) that might be tainted", idx);
 							}
 							break;
 						}
@@ -813,7 +998,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 						}
 					}
 					if (IS_STRING == Z_TYPE_P(str) && TAINT_POSSIBLE(Z_STR_P(str))) {
-						php_taint_error(fname, "Second argument contains data that might be tainted");
+						php_taint_error(fname, "()", "Second argument contains data that might be tainted");
 					}
 				}
 				break;
@@ -825,7 +1010,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					|| strncmp("sqlite_single_query", fname, len) == 0 ) {
 				zval *query = ZEND_CALL_ARG(ex, arg_count);
 				if (IS_STRING == Z_TYPE_P(query) && TAINT_POSSIBLE(Z_STR_P(query))) {
-					php_taint_error(fname, "SQL statement contains data that might be tainted");
+					php_taint_error(fname, "()", "SQL statement contains data that might be tainted");
 				}
 				break;
 			}
@@ -834,7 +1019,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				if (arg_count > 1) {
 					zval *sql = ZEND_CALL_ARG(ex, 2);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
+						php_taint_error(fname, "()", "SQL statement contains data that might be tainted");
 					}
 				}
 				break;
@@ -847,7 +1032,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					|| strncmp("proc_open", fname, len) == 0 ) {
 				zval *cmd = ZEND_CALL_ARG(ex, arg_count);
 				if (IS_STRING == Z_TYPE_P(cmd) && TAINT_POSSIBLE(Z_STR_P(cmd))) {
-					php_taint_error(fname, "CMD statement contains data that might be tainted");
+					php_taint_error(fname, "()", "CMD statement contains data that might be tainted");
 				}
 				break;
 			}
@@ -881,7 +1066,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				if (strncmp("query", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, arg_count);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
+						php_taint_error(fname, "()", "SQL statement contains data that might be tainted");
 					}
 				}
 #if 0
@@ -902,7 +1087,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 						|| strncmp("singlequery", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, arg_count);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
+						php_taint_error(fname, "()", "SQL statement contains data that might be tainted");
 					}
 				}
 				break;
@@ -913,7 +1098,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 						|| strncmp("prepare", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, arg_count);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
+						php_taint_error(fname, "()", "SQL statement contains data that might be tainted");
 					}
 				}
 #if 0
@@ -1006,27 +1191,27 @@ static void php_taint_override_functions() /* {{{ */ {
 ZEND_GET_MODULE(taint)
 #endif
 
-	/* {{{ proto string strval(mixed $value)
-	*/
-	PHP_FUNCTION(taint_strval) {
-		zval *num;
-		int tainted = 0;
+/* {{{ proto string strval(mixed $value)
+*/
+PHP_FUNCTION(taint_strval) {
+	zval *num;
+	int tainted = 0;
 
-		if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &num) == FAILURE) {
-			return;
-		}
-
-		if (Z_TYPE_PP(num) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(num))) {
-			tainted = 1;
-		}
-
-		TAINT_O_FUNC(strval)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
-
-		if (tainted && IS_STRING == Z_TYPE_P(return_value) 
-				&& Z_STR_P(return_value) != Z_STR_P(num) && Z_STRLEN_P(return_value)) {
-			TAINT_MARK(Z_STR_P(return_value));
-		}
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &num) == FAILURE) {
+		return;
 	}
+
+	if (Z_TYPE_P(num) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(num))) {
+		tainted = 1;
+	}
+
+	TAINT_O_FUNC(strval)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) 
+			&& Z_STR_P(return_value) != Z_STR_P(num) && Z_STRLEN_P(return_value)) {
+		TAINT_MARK(Z_STR_P(return_value));
+	}
+}
 /* }}} */
 
 /* {{{ proto string sprintf(string $format, ...)
@@ -1059,7 +1244,7 @@ PHP_FUNCTION(taint_sprintf) {
 PHP_FUNCTION(taint_vsprintf) {
 	zval *args;
 	zend_string *format;
-	int i, tainted = 0;
+	int tainted = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "Sa", &format, &args) == FAILURE) {
 		RETURN_FALSE;
