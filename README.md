@@ -6,7 +6,7 @@ php extension used to detect XSS codes(tainted string), And also can be used to 
 
 The idea is from https://wiki.php.net/rfc/taint, I implemented it in a php extension which make the patch no-needed.
 
-Please note that do not enable this extension in product env.
+Please note that do not enable this extension in product env, since it will slowdown your app.
 
 ## Requirement
 - PHP-5.2 +
