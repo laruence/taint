@@ -1065,6 +1065,14 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				break;
 			}
 
+			if (strncmp("header", fname, len) == 0) {
+				zval *header = ZEND_CALL_ARG(ex, 1);
+				if (IS_STRING == Z_TYPE_P(header) && TAINT_POSSIBLE(Z_STR_P(header))) {
+					php_taint_error(fname, "Attempt to send a header that might be tainted");
+				}
+				break;
+			}
+
 			if (strncmp("mysqli_query", fname, len) == 0
 					|| strncmp("mysql_query", fname, len) == 0
 					|| strncmp("sqlite_query", fname, len) == 0
@@ -1082,19 +1090,6 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
 						php_taint_error(fname, "SQL statement contains data that might be tainted");
 					}
-				}
-				break;
-			}
-
-			if (strncmp("passthru", fname, len) == 0
-				|| strncmp("system", fname, len) == 0
-				|| strncmp("exec", fname, len) == 0
-				|| strncmp("shell_exec", fname, len) == 0
-				|| strncmp("proc_open", fname, len) == 0 
-				|| strncmp("popen", fname, len) == 0) {
-				zval *cmd = ZEND_CALL_ARG(ex, arg_count);
-				if (IS_STRING == Z_TYPE_P(cmd) && TAINT_POSSIBLE(Z_STR_P(cmd))) {
-					php_taint_error(fname, "CMD statement contains data that might be tainted");
 				}
 				break;
 			}
@@ -1119,6 +1114,20 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				}
 				break;
 			}
+
+			if (strncmp("passthru", fname, len) == 0
+				|| strncmp("system", fname, len) == 0
+				|| strncmp("exec", fname, len) == 0
+				|| strncmp("shell_exec", fname, len) == 0
+				|| strncmp("proc_open", fname, len) == 0 
+				|| strncmp("popen", fname, len) == 0) {
+				zval *cmd = ZEND_CALL_ARG(ex, arg_count);
+				if (IS_STRING == Z_TYPE_P(cmd) && TAINT_POSSIBLE(Z_STR_P(cmd))) {
+					php_taint_error(fname, "CMD statement contains data that might be tainted");
+				}
+				break;
+			}
+
 		} while (0);
 	} else {
 		do {
