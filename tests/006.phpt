@@ -34,15 +34,15 @@ test2($c);
 
 ?>
 --EXPECTF--
-Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: test1() [echo]: Attempt to echo a string that might be tainted in %s006.php on line 6
 tainted string.
-Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: test2() [echo]: Attempt to echo a string that might be tainted in %s006.php on line 10
 tainted string.
-Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: test1() [echo]: Attempt to echo a string that might be tainted in %s006.php on line 6
 tainted string.
-Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: test2() [echo]: Attempt to echo a string that might be tainted in %s006.php on line 10
 tainted string.
-Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: test1() [echo]: Attempt to echo a string that might be tainted in %s006.php on line 6
 tainted string.
-Warning: echo: Attempt to echo a string that might be tainted in %s006.php on line %d
+Warning: test2() [echo]: Attempt to echo a string that might be tainted in %s006.php on line 10
 tainted string.

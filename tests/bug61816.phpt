@@ -20,6 +20,6 @@ var_dump(is_tainted($c->foo));
 --EXPECTF--
 bool(true)
 
-Warning: echo: Attempt to echo a string that might be tainted in %sbug61816.php on line %d
+Warning: main() [echo]: Attempt to echo a string that might be tainted in %sbug61816.php on line %d
 tainted string.
 bool(true)

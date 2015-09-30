@@ -19,11 +19,11 @@ echo $e;
 print $a;
 ?>
 --EXPECTF--
-Warning: echo: Attempt to echo a string that might be tainted in %s005.php on line %d
+Warning: main() [echo]: Attempt to echo a string that might be tainted in %s005.php on line %d
 tainted string.
-Warning: print: Attempt to print a string that might be tainted in %s005.php on line %d
+Warning: main() [print]: Attempt to print a string that might be tainted in %s005.php on line %d
 tainted string.
-Warning: echo: Attempt to echo a string that might be tainted in %s005.php on line %d
+Warning: main() [echo]: Attempt to echo a string that might be tainted in %s005.php on line %d
 tainted string.
-Warning: print: Attempt to print a string that might be tainted in %s005.php on line %d
+Warning: main() [print]: Attempt to print a string that might be tainted in %s005.php on line %d
 tainted string.

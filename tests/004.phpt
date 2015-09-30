@@ -13,5 +13,5 @@ eval('$b = $a;');
 echo $b;
 ?>
 --EXPECTF--
-Warning: echo: Attempt to echo a string that might be tainted in %s004.php on line %d
+Warning: main() [echo]: Attempt to echo a string that might be tainted in %s004.php on line %d
 tainted string.

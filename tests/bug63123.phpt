@@ -16,7 +16,7 @@ while (list($key, $val) = each($a)) {
 
 ?>
 --EXPECTF--
-Warning: echo: Attempt to echo a string that might be tainted in %sbug63123.php on line %d
+Warning: main() [echo]: Attempt to echo a string that might be tainted in %sbug63123.php on line %d
 a
-Warning: echo: Attempt to echo a string that might be tainted in %Sbug63123.php on line %d
+Warning: main() [echo]: Attempt to echo a string that might be tainted in %Sbug63123.php on line %d
 b
