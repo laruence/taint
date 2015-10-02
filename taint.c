@@ -1723,9 +1723,11 @@ PHP_FUNCTION(untaint)
 		return;
 	}
 
-	for (i=0; i<argc; i++) {
-		if (IS_STRING == Z_TYPE(args[i]) && !TAINT_POSSIBLE(Z_STR(args[i]))) {
-			TAINT_CLEAN(Z_STR(args[i]));
+	for (i = 0; i < argc; i++) {
+		zval *el = &args[i];
+		ZVAL_DEREF(el);
+		if (IS_STRING == Z_TYPE_P(el) && TAINT_POSSIBLE(Z_STR_P(el))) {
+			TAINT_CLEAN(Z_STR_P(el));
 		}
 	}
 
