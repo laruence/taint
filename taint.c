@@ -1071,6 +1071,15 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				break;
 			}
 
+			if (strncmp("unserialize", fname, len) == 0) {
+				/* TODO: allow_classes? */
+				zval *str = ZEND_CALL_ARG(ex, 1);
+				if (IS_STRING == Z_TYPE_P(str) && TAINT_POSSIBLE(Z_STR_P(str))) {
+					php_taint_error(fname, "Attempt to unserialize a string that might be tainted");
+				}
+				break;
+			}
+
 			if (strncmp("mysqli_query", fname, len) == 0
 					|| strncmp("mysql_query", fname, len) == 0
 					|| strncmp("sqlite_query", fname, len) == 0
