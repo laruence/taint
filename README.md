@@ -1,6 +1,6 @@
 # Taint
 
-[![Build Status](https://secure.travis-ci.org/laruence/php-taint.png)](http://travis-ci.org/laruence/php-taint)
+[![Build Status](https://secure.travis-ci.org/laruence/taint.png)](http://travis-ci.org/laruence/taint)
 
 php extension used to detect XSS codes(tainted string), And also can be used to spot sql injection vulnerabilities, shell inject, etc.
 
