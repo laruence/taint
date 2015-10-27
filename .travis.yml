@@ -1,12 +1,11 @@
 language: php 
 
 php:
-  - 5.2
-  - 5.3
-  - 5.4
+  - 7.0
 
 notifications:
   email: false
+  irc: "irc.efnet.org#php.yaf"
 
 env:
   - REPORT_EXIT_STATUS=1 NO_INTERACTION=1
