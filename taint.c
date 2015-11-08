@@ -1089,6 +1089,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			}
 
 			if (strncmp("mysqli_query", fname, len) == 0
+					|| strncmp("mysqli_prepare", fname, len) == 0
 					|| strncmp("mysql_query", fname, len) == 0
 					|| strncmp("sqlite_query", fname, len) == 0
 					|| strncmp("sqlite_single_query", fname, len) == 0 ) {
@@ -1172,7 +1173,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				break;
 			}
 
-			if (strncmp("pdo", class_name, cname_len) == 0) {
+			if (strncmp("PDO", class_name, cname_len) == 0) {
 				if (strncmp("query", fname, len) == 0
 					|| strncmp("prepare", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, arg_count);
