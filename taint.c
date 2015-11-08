@@ -1147,6 +1147,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 		} while (0);
 	} else {
 		do {
+			char mname[64];
 			const char *class_name = ZSTR_VAL(fbc->common.scope->name);
 			size_t cname_len = ZSTR_LEN(fbc->common.scope->name) + 1;
 			const char *fname = ZSTR_VAL(fbc->common.function_name);
@@ -1156,7 +1157,8 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				if (strncmp("query", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, arg_count);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
+						snprintf(mname, sizeof(mname), "%s::%s", "mysqli", fname);
+						php_taint_error(mname, "SQL statement contains data that might be tainted");
 					}
 				}
 				break;
@@ -1167,7 +1169,8 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 						|| strncmp("singlequery", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, arg_count);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
+						snprintf(mname, sizeof(mname), "%s::%s", "sqlitedatabase", fname);
+						php_taint_error(mname, "SQL statement contains data that might be tainted");
 					}
 				}
 				break;
@@ -1178,7 +1181,8 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					|| strncmp("prepare", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, arg_count);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
+						snprintf(mname, sizeof(mname), "%s::%s", "PDO", fname);
+						php_taint_error(mname, "SQL statement contains data that might be tainted");
 					}
 				}
 				break;
@@ -1697,8 +1701,8 @@ PHP_INI_BEGIN()
 PHP_INI_END()
 	/* }}} */
 
-	/* {{{ proto bool taint(string $str[, string ...])
-	*/
+/* {{{ proto bool taint(string $str[, string ...])
+*/
 PHP_FUNCTION(taint)
 {
 	zval *args;
@@ -1717,7 +1721,11 @@ PHP_FUNCTION(taint)
 		zval *el = &args[i];
 		ZVAL_DEREF(el);
 		if (IS_STRING == Z_TYPE_P(el) && Z_STRLEN_P(el) && !TAINT_POSSIBLE(Z_STR_P(el))) {
-			TAINT_MARK(Z_STR_P(el));
+			/* string might be in shared memory */
+			zend_string *str = zend_string_dup(Z_STR_P(el), 0);
+			zend_string_release(Z_STR_P(el));
+			TAINT_MARK(str);
+			ZVAL_STR(el, str);
 		}
 	}
 
