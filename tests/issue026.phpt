@@ -2,8 +2,10 @@
 ISSUE #26 (PDO checking doesn't work)
 --SKIPIF--
 <?php
-if (!extension_loaded('pdo_sqlite')) print 'skip not loaded';
+if (!extension_loaded('taint') || !extension_loaded('pdo_sqlite')) print 'skip not loaded';
 ?>
+--INI--
+taint.enable=1
 --FILE--
 <?php
 $db = new PDO("sqlite::memory:");
