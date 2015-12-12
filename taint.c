@@ -1735,7 +1735,7 @@ PHP_FUNCTION(taint)
 		ZVAL_DEREF(el);
 		if (IS_STRING == Z_TYPE_P(el) && Z_STRLEN_P(el) && !TAINT_POSSIBLE(Z_STR_P(el))) {
 			/* string might be in shared memory */
-			zend_string *str = zend_string_dup(Z_STR_P(el), 0);
+			zend_string *str = zend_string_init(Z_STRVAL_P(el), Z_STRLEN_P(el), 0);
 			zend_string_release(Z_STR_P(el));
 			TAINT_MARK(str);
 			ZVAL_STR(el, str);
