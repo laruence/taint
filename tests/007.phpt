@@ -21,9 +21,6 @@ var_dump(is_tainted($b[0]));
 $a = implode(" ", $b);
 var_dump(is_tainted($a));
 
-$a = implode($b, " ");
-var_dump(is_tainted($a));
-
 $a = join(" ", $b);
 var_dump(is_tainted($a));
 
@@ -36,7 +33,6 @@ var_dump(is_tainted($a));
 
 ?>
 --EXPECTF--
-bool(true)
 bool(true)
 bool(true)
 bool(true)

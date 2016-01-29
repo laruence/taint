@@ -469,6 +469,7 @@ static void php_taint_binary_assign_op_obj_dim(zval *object, zval *property, zva
 static void php_taint_mark_strings(zend_array *symbol_table) /* {{{ */ {
 	zval *val;
 	ZEND_HASH_FOREACH_VAL(symbol_table, val) {
+		ZVAL_DEREF(val);
 		if (Z_TYPE_P(val) == IS_ARRAY) {
 			php_taint_mark_strings(Z_ARRVAL_P(val));
 		} else if (IS_STRING == Z_TYPE_P(val) && Z_STRLEN_P(val)) {
@@ -1337,6 +1338,7 @@ PHP_FUNCTION(taint_vsprintf) {
 		}
 
 		ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(args), val) {
+			ZVAL_DEREF(val);
 			if (IS_STRING == Z_TYPE_P(val) && TAINT_POSSIBLE(Z_STR_P(val))) {
 				tainted = 1;
 				break;
@@ -1375,27 +1377,27 @@ PHP_FUNCTION(taint_explode) {
 }
 /* }}} */
 
-/* {{{ proto string implode(string $separator, array $args)
+/* {{{ proto string implode(string $separator[, array $args])
 */
 PHP_FUNCTION(taint_implode) {
-	zval *op1, *op2;
+	zval *op1, *op2 = NULL;
 	zval *target = NULL;
 	int tainted = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "zz", &op1, &op2) == FAILURE) {
-		ZVAL_FALSE(return_value);
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z|z", &op1, &op2) == FAILURE) {
+		return;
 	}
 
-	if (IS_ARRAY == Z_TYPE_P(op1)) {
+	if (op2 == NULL) {
 		target = op1;
-	} else if(IS_ARRAY == Z_TYPE_P(op2)) {
+	} else {
 		target = op2;
 	}
 
-	if (target) {
+	if (Z_TYPE_P(target) == IS_ARRAY) {
 		zval *val;
 		ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(target), val) {
+			ZVAL_DEREF(val);
 			if (IS_STRING == Z_TYPE_P(val) && Z_STRLEN_P(val) && TAINT_POSSIBLE(Z_STR_P(val))) {
 				tainted = 1;
 				break;
