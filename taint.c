@@ -1428,7 +1428,7 @@ PHP_FUNCTION(taint_trim)
 
 	TAINT_O_FUNC(trim)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 
-	if (tainted && IS_STRING == Z_TYPE_P(return_value) && 
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) &&
 			Z_STR_P(return_value) != str && Z_STRLEN_P(return_value)) {
 		TAINT_MARK(Z_STR_P(return_value));
 	}
@@ -1439,7 +1439,23 @@ PHP_FUNCTION(taint_trim)
 */
 PHP_FUNCTION(taint_rtrim)
 {
-	PHP_FN(taint_trim)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+	zend_string *str, *what;
+	int tainted = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "S|S", &str, &what) == FAILURE) {
+		return;
+	}
+
+	if (TAINT_POSSIBLE(str)) {
+		tainted = 1;
+	}
+
+	TAINT_O_FUNC(rtrim)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) &&
+			Z_STR_P(return_value) != str && Z_STRLEN_P(return_value)) {
+		TAINT_MARK(Z_STR_P(return_value));
+	}
 }
 /* }}} */
 
@@ -1447,7 +1463,23 @@ PHP_FUNCTION(taint_rtrim)
 */
 PHP_FUNCTION(taint_ltrim)
 {
-	PHP_FN(taint_trim)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+	zend_string *str, *what;
+	int tainted = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "S|S", &str, &what) == FAILURE) {
+		return;
+	}
+
+	if (TAINT_POSSIBLE(str)) {
+		tainted = 1;
+	}
+
+	TAINT_O_FUNC(ltrim)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) &&
+			Z_STR_P(return_value) != str && Z_STRLEN_P(return_value)) {
+		TAINT_MARK(Z_STR_P(return_value));
+	}
 }
 /* }}} */
 
