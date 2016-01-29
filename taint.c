@@ -1090,6 +1090,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			}
 
 			if (strncmp("mysqli_query", fname, len) == 0
+					|| strncmp("mysqli_prepare", fname, len) == 0
 					|| strncmp("mysql_query", fname, len) == 0
 					|| strncmp("sqlite_query", fname, len) == 0
 					|| strncmp("sqlite_single_query", fname, len) == 0 ) {
@@ -1147,6 +1148,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 		} while (0);
 	} else {
 		do {
+			char mname[64];
 			const char *class_name = ZSTR_VAL(fbc->common.scope->name);
 			size_t cname_len = ZSTR_LEN(fbc->common.scope->name) + 1;
 			const char *fname = ZSTR_VAL(fbc->common.function_name);
@@ -1156,7 +1158,32 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				if (strncmp("query", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, arg_count);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
+						snprintf(mname, sizeof(mname), "%s::%s", "mysqli", fname);
+						php_taint_error(mname, "SQL statement contains data that might be tainted");
+					}
+				}
+				break;
+			}
+
+			if (strncmp("PDO", class_name, cname_len) == 0) {
+				if (strncmp("query", fname, len) == 0
+					|| strncmp("prepare", fname, len) == 0) {
+					zval *sql = ZEND_CALL_ARG(ex, arg_count);
+					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
+						snprintf(mname, sizeof(mname), "%s::%s", "PDO", fname);
+						php_taint_error(mname, "SQL statement contains data that might be tainted");
+					}
+				}
+				break;
+			}
+
+			if (strncmp("SQLite3", class_name, cname_len) == 0) {
+				if (strncmp("query", fname, len) == 0
+					|| strncmp("prepare", fname, len) == 0) {
+					zval *sql = ZEND_CALL_ARG(ex, arg_count);
+					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
+						snprintf(mname, sizeof(mname), "%s::%s", "SQLite3", fname);
+						php_taint_error(mname, "SQL statement contains data that might be tainted");
 					}
 				}
 				break;
@@ -1167,23 +1194,14 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 						|| strncmp("singlequery", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, arg_count);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
-					}
-				}
-				break;
-			}
-
-			if (strncmp("pdo", class_name, cname_len) == 0) {
-				if (strncmp("query", fname, len) == 0
-					|| strncmp("prepare", fname, len) == 0) {
-					zval *sql = ZEND_CALL_ARG(ex, arg_count);
-					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
-						php_taint_error(fname, "SQL statement contains data that might be tainted");
+						snprintf(mname, sizeof(mname), "%s::%s", "sqlitedatabase", fname);
+						php_taint_error(mname, "SQL statement contains data that might be tainted");
 					}
 				}
 				break;
 			}
 		} while (0);
+
 	}
 } /* }}} */
 
@@ -1730,8 +1748,8 @@ PHP_INI_BEGIN()
 PHP_INI_END()
 	/* }}} */
 
-	/* {{{ proto bool taint(string $str[, string ...])
-	*/
+/* {{{ proto bool taint(string $str[, string ...])
+*/
 PHP_FUNCTION(taint)
 {
 	zval *args;
@@ -1750,7 +1768,11 @@ PHP_FUNCTION(taint)
 		zval *el = &args[i];
 		ZVAL_DEREF(el);
 		if (IS_STRING == Z_TYPE_P(el) && Z_STRLEN_P(el) && !TAINT_POSSIBLE(Z_STR_P(el))) {
-			TAINT_MARK(Z_STR_P(el));
+			/* string might be in shared memory */
+			zend_string *str = zend_string_init(Z_STRVAL_P(el), Z_STRLEN_P(el), 0);
+			zend_string_release(Z_STR_P(el));
+			TAINT_MARK(str);
+			ZVAL_STR(el, str);
 		}
 	}
 
