@@ -81,6 +81,11 @@ extern zend_module_entry taint_module_entry;
 #  define TAINT_ARG_PUSH(v)         zend_vm_stack_push(v TSRMLS_CC)
 #endif
 
+#if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION == 3) && (PHP_RELEASE_VERSION > 3) 
+#  define refcount refcount__gc
+#  define is_ref is_ref__gc
+#endif
+
 #ifndef Z_SET_ISREF_PP
 #  define Z_SET_ISREF_PP(n) ((*n)->is_ref = 1)
 #endif
