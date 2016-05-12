@@ -2019,7 +2019,11 @@ static void php_taint_fcall_check(ZEND_OPCODE_HANDLER_ARGS, zend_op *opline, cha
 					|| strncmp("sqlite_query", fname, len) == 0
 					|| strncmp("sqlite_single_query", fname, len) == 0 ) {
 				zval *el;
-				el = *((zval **) (p - arg_count));
+				if(strncmp("mysqli_query", fname, len) == 0){
+					el = *((zval **) (p - arg_count + 1));
+				}else{
+					el = *((zval **) (p - arg_count));
+				}
 				if (el && IS_STRING == Z_TYPE_P(el) && PHP_TAINT_POSSIBLE(el)) {
 					php_taint_error(NULL TSRMLS_CC, "SQL statement contains data that might be tainted");
 				}
@@ -2278,6 +2282,44 @@ static int php_taint_assign_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
 
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
+	
+static int php_taint_return_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
+	zend_op *opline = execute_data->opline;
+	zval **op1 = NULL;
+	switch (TAINT_OP1_TYPE(opline)) {
+		case IS_VAR:
+			op1 = TAINT_T(TAINT_OP1_VAR(opline)).var.ptr_ptr;
+			break;
+		case IS_CV:
+			{
+				zval **t = TAINT_CV_OF(TAINT_OP1_VAR(opline));
+				if (t && *t) {
+					op1 = t;
+				} else if (EG(active_symbol_table)) {
+					zend_compiled_variable *cv = &TAINT_CV_DEF_OF(TAINT_OP1_VAR(opline));
+					if (zend_hash_quick_find(EG(active_symbol_table), cv->name, cv->name_len + 1, cv->hash_value, (void **)&t) == SUCCESS) {
+						op1 = t;
+					}
+				}
+			}
+			break;
+	}
+	if (!op1 || *op1 == &EG(error_zval) || *op1 == &EG(uninitialized_zval) || IS_STRING != Z_TYPE_PP(op1) 
+			 || !PZVAL_IS_REF(*op1) || Z_REFCOUNT_PP(op1) < 2 || !Z_STRLEN_PP(op1) || !PHP_TAINT_POSSIBLE(*op1)) {
+		return ZEND_USER_OPCODE_DISPATCH;
+	}
+    if(op1 && PZVAL_IS_REF(*op1) && PHP_TAINT_POSSIBLE(*op1)) {
+		zval *ret;
+		ALLOC_ZVAL(ret);
+		INIT_PZVAL_COPY(ret, *op1);
+		zval_copy_ctor(ret);
+		Z_STRVAL_P(ret) = erealloc(Z_STRVAL_P(ret), Z_STRLEN_P(ret) + 1 + PHP_TAINT_MAGIC_LENGTH);
+		PHP_TAINT_MARK(ret, PHP_TAINT_MAGIC_POSSIBLE);
+		*EG(return_value_ptr_ptr) = ret;
+	}																								
+	return ZEND_USER_OPCODE_RETURN;
+
+}/* }}} */
 
 static int php_taint_send_ref_handler(ZEND_OPCODE_HANDLER_ARGS) /* {{{ */ {
     zend_op *opline = execute_data->opline;
@@ -2413,6 +2455,7 @@ static void php_taint_register_handlers(TSRMLS_D) /* {{{ */ {
 	zend_set_user_opcode_handler(ZEND_ASSIGN, php_taint_assign_handler);
 	zend_set_user_opcode_handler(ZEND_SEND_VAR, php_taint_send_var_handler);
     zend_set_user_opcode_handler(ZEND_SEND_REF, php_taint_send_ref_handler);
+    zend_set_user_opcode_handler(ZEND_RETURN, php_taint_return_handler);
 #if (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION < 4)
 	zend_set_user_opcode_handler(ZEND_QM_ASSIGN, php_taint_qm_assign_handler);
 #endif
