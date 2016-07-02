@@ -772,7 +772,7 @@ static int php_taint_binary_assign_op_helper(binary_op_type binary_op, zend_exec
 		TAINT_MARK(Z_STR_P(var_ptr));
 	}
 
-	if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+	if (TAINT_RET_USED(opline)) {
 		ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 	}
 
@@ -809,7 +809,7 @@ static int php_taint_binary_assign_op_obj_helper(binary_op_type binary_op, zend_
 		if (opline->op1_type == IS_UNUSED || Z_TYPE_P(object) != IS_OBJECT) {
 			if (!php_taint_make_real_object(object)) {
 				zend_error(E_WARNING, "Attempt to assign property of non-object");
-				if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+				if (TAINT_RET_USED(opline)) {
 					ZVAL_NULL(EX_VAR(opline->result.var));
 				}
 				break;
@@ -830,7 +830,7 @@ static int php_taint_binary_assign_op_obj_helper(binary_op_type binary_op, zend_
 			}
 
 			binary_op(var_ptr, var_ptr, value);
-			if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+			if (TAINT_RET_USED(opline)) {
 				ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 			}
 
@@ -839,7 +839,7 @@ static int php_taint_binary_assign_op_obj_helper(binary_op_type binary_op, zend_
 			}
 		} else {
 			php_taint_assign_op_overloaded_property(object, property, NULL, value, binary_op, EX_VAR(opline->result.var));
-			if ((opline)->result_type & EXT_TYPE_UNUSED) {
+			if (!TAINT_RET_USED(opline)) {
 				zval_ptr_dtor_nogc(EX_VAR(opline->result.var));
 			}
 		}
@@ -881,7 +881,7 @@ static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_
 			value = php_taint_get_zval_ptr(execute_data, (opline + 1)->op1_type, (opline + 1)->op1, &free_op_data, BP_VAR_R, 1);
 			php_taint_binary_assign_op_obj_dim(container, dim, value, EX_VAR(opline->result.var), binary_op);
 			
-			if ((opline)->result_type & EXT_TYPE_UNUSED) {
+			if (!TAINT_RET_USED(opline)) {
 				zval_ptr_dtor_nogc(EX_VAR(opline->result.var));
 			}
 			break;
@@ -908,7 +908,7 @@ static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_
 		}
 
 		if (var_ptr == &EG(error_zval)) {
-			if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+			if (TAINT_RET_USED(opline)) {
 				ZVAL_NULL(EX_VAR(opline->result.var));
 			}
 		} else {
@@ -923,7 +923,7 @@ static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_
 
 			binary_op(var_ptr, var_ptr, value);
 
-			if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+			if (TAINT_RET_USED(opline)) {
 				ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 			}
 

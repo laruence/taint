@@ -46,6 +46,13 @@ extern zend_module_entry taint_module_entry;
 #define TAINT_OP1_TYPE(opline)	(opline->op1_type)
 #define TAINT_OP2_TYPE(opline)	(opline->op2_type)
 
+#if PHP_VERSION_ID < 70100
+#define TAINT_RET_USED(opline) (!((opline)->result_type & EXT_TYPE_UNUSED))
+#else
+#define TAINT_RET_USED(opline) (!((opline)->result_type != IS_UNUSED))
+#endif
+
+
 typedef zval* taint_free_op;
 
 PHP_MINIT_FUNCTION(taint);
