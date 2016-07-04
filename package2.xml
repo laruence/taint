@@ -13,11 +13,11 @@
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2015-12-12</date>
- <time>21:59:00</time>
+ <date>2016-07-04</date>
+ <time>12:14:00</time>
  <version>
-  <release>2.0.1</release>
-  <api>2.0.1</api>
+  <release>2.0.2</release>
+  <api>2.0.2</api>
  </version>
  <stability>
   <release>beta</release>
@@ -25,8 +25,7 @@
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
  <notes> 
-  - Fixed issue #26 (taint deson't work with PDO)
-  - Added SQLite3 supproted
+  - Fixed build with PHP-7.1
  </notes>
  <contents> 
   <dir name="/"> 
@@ -79,6 +78,22 @@
  <extsrcrelease />
  <changelog> 
   <release> 
+   <date>2016-07-04</date> 
+   <version> 
+    <release>2.0.2</release> 
+    <api>2.0.2</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+    - Fixed build with PHP-7.1
+   </notes> 
+  </release> 
+
+  <release> 
    <date>2015-12-12</date> 
    <version> 
     <release>2.0.1</release> 
@@ -94,7 +109,6 @@
     - Added SQLite3 supproted
    </notes> 
   </release> 
-
   <release> 
    <date>2015-10-27</date> 
    <version> 

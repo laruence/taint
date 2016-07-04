@@ -32,7 +32,7 @@ extern zend_module_entry taint_module_entry;
 #include "TSRM.h"
 #endif
 
-#define PHP_TAINT_VERSION "2.0.2-dev"
+#define PHP_TAINT_VERSION "2.0.2"
 
 /* it's important that make sure 
  * this value is not used by Zend or
