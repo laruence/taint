@@ -262,7 +262,12 @@ str_index:
 			default:
 				zend_error(E_WARNING, "Illegal offset type");
 				retval = (type == BP_VAR_W || type == BP_VAR_RW) ?
-					&EG(error_zval) : &EG(uninitialized_zval);
+#if PHP_7_0
+					&EG(error_zval)
+#else
+					NULL
+#endif
+				   	: &EG(uninitialized_zval);
 		}
 	}
 	return retval;
@@ -280,7 +285,12 @@ fetch_from_array:
 			retval = zend_hash_next_index_insert(Z_ARRVAL_P(container), &EG(uninitialized_zval));
 			if (UNEXPECTED(retval == NULL)) {
 				zend_error(E_WARNING, "Cannot add element to the array as the next element is already occupied");
+#if PHP_7_0	
 				retval = &EG(error_zval);
+#else
+				ZVAL_ERROR(result);
+				return;
+#endif
 			}
 		} else {
 			retval = php_taint_fetch_dimension_address_inner(Z_ARRVAL_P(container), dim, dim_type, type);
@@ -304,15 +314,27 @@ convert_to_array:
 
 		if (dim == NULL) {
 			zend_throw_error(NULL, "[] operator not supported for strings");
+#if PHP_7_0
 			ZVAL_INDIRECT(result, &EG(error_zval));
+#else
+			ZVAL_ERROR(result);
+#endif
 		} else {
 			php_taint_check_string_offset(dim, type);
+#if PHP_7_0
 			ZVAL_INDIRECT(result, NULL); /* wrong string offset */
+#else
+			ZVAL_ERROR(result);
+#endif
 		}
 	} else if (EXPECTED(Z_TYPE_P(container) == IS_OBJECT)) {
 		if (!Z_OBJ_HT_P(container)->read_dimension) {
 			zend_throw_error(NULL, "Cannot use object as array");
+#if PHP_7_0
 			retval = &EG(error_zval);
+#else
+			ZVAL_ERROR(result);
+#endif
 		} else {
 			retval = Z_OBJ_HT_P(container)->read_dimension(container, dim, type, result);
 
@@ -345,12 +367,20 @@ convert_to_array:
 					ZVAL_INDIRECT(result, retval);
 				}
 			} else {
+#if PHP_7_0
 				ZVAL_INDIRECT(result, &EG(error_zval));
+#else
+				ZVAL_ERROR(result);
+#endif
 			}
 		}
 	} else if (EXPECTED(Z_TYPE_P(container) <= IS_FALSE)) {
-		if (UNEXPECTED(container == &EG(error_zval))) {
+		if (UNEXPECTED(TAINT_ISERR(container))) {
+#if PHP_7_0
 			ZVAL_INDIRECT(result, &EG(error_zval));
+#else
+			ZVAL_ERROR(result);
+#endif
 		} else if (type != BP_VAR_UNSET) {
 			goto convert_to_array;
 		} else {
@@ -363,7 +393,11 @@ convert_to_array:
 			ZVAL_NULL(result);
 		} else {
 			zend_error(E_WARNING, "Cannot use a scalar value as an array");
+#if PHP_7_0
 			ZVAL_INDIRECT(result, &EG(error_zval));
+#else
+			ZVAL_ERROR(result);
+#endif
 		}
 	}
 }
@@ -754,7 +788,7 @@ static int php_taint_binary_assign_op_helper(binary_op_type binary_op, zend_exec
 	var_ptr = php_taint_get_zval_ptr_ptr(execute_data, opline->op1_type, opline->op1, &free_op1, BP_VAR_RW);
 
 	if (opline->op1_type == IS_VAR) {
-		if (var_ptr == NULL || var_ptr == &EG(error_zval)) {
+		if (var_ptr == NULL || TAINT_ISERR(var_ptr)) {
 			return ZEND_USER_OPCODE_DISPATCH;
 		}
 	}
@@ -772,7 +806,7 @@ static int php_taint_binary_assign_op_helper(binary_op_type binary_op, zend_exec
 		TAINT_MARK(Z_STR_P(var_ptr));
 	}
 
-	if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+	if (TAINT_RET_USED(opline)) {
 		ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 	}
 
@@ -809,7 +843,7 @@ static int php_taint_binary_assign_op_obj_helper(binary_op_type binary_op, zend_
 		if (opline->op1_type == IS_UNUSED || Z_TYPE_P(object) != IS_OBJECT) {
 			if (!php_taint_make_real_object(object)) {
 				zend_error(E_WARNING, "Attempt to assign property of non-object");
-				if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+				if (TAINT_RET_USED(opline)) {
 					ZVAL_NULL(EX_VAR(opline->result.var));
 				}
 				break;
@@ -830,7 +864,7 @@ static int php_taint_binary_assign_op_obj_helper(binary_op_type binary_op, zend_
 			}
 
 			binary_op(var_ptr, var_ptr, value);
-			if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+			if (TAINT_RET_USED(opline)) {
 				ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 			}
 
@@ -839,7 +873,7 @@ static int php_taint_binary_assign_op_obj_helper(binary_op_type binary_op, zend_
 			}
 		} else {
 			php_taint_assign_op_overloaded_property(object, property, NULL, value, binary_op, EX_VAR(opline->result.var));
-			if ((opline)->result_type & EXT_TYPE_UNUSED) {
+			if (!TAINT_RET_USED(opline)) {
 				zval_ptr_dtor_nogc(EX_VAR(opline->result.var));
 			}
 		}
@@ -881,7 +915,7 @@ static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_
 			value = php_taint_get_zval_ptr(execute_data, (opline + 1)->op1_type, (opline + 1)->op1, &free_op_data, BP_VAR_R, 1);
 			php_taint_binary_assign_op_obj_dim(container, dim, value, EX_VAR(opline->result.var), binary_op);
 			
-			if ((opline)->result_type & EXT_TYPE_UNUSED) {
+			if (!TAINT_RET_USED(opline)) {
 				zval_ptr_dtor_nogc(EX_VAR(opline->result.var));
 			}
 			break;
@@ -907,8 +941,8 @@ static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_
 			return ZEND_USER_OPCODE_CONTINUE;
 		}
 
-		if (var_ptr == &EG(error_zval)) {
-			if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+		if (TAINT_ISERR(var_ptr)) {
+			if (TAINT_RET_USED(opline)) {
 				ZVAL_NULL(EX_VAR(opline->result.var));
 			}
 		} else {
@@ -923,7 +957,7 @@ static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_
 
 			binary_op(var_ptr, var_ptr, value);
 
-			if ((!((opline)->result_type & EXT_TYPE_UNUSED))) {
+			if (TAINT_RET_USED(opline)) {
 				ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 			}
 
