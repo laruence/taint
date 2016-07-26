@@ -1189,8 +1189,9 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			size_t len = ZSTR_LEN(fbc->common.function_name) + 1; /* include the tail zero */
 
 			if (strncmp("mysqli", class_name, cname_len) == 0) {
-				if (strncmp("query", fname, len) == 0) {
-					zval *sql = ZEND_CALL_ARG(ex, arg_count);
+				if (strncmp("query", fname, len) == 0
+					|| strncmp("prepare", fname, len) == 0) {
+					zval *sql = ZEND_CALL_ARG(ex, 1);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
 						snprintf(mname, sizeof(mname), "%s::%s", "mysqli", fname);
 						php_taint_error(mname, "SQL statement contains data that might be tainted");
