@@ -501,8 +501,10 @@ static void php_taint_binary_assign_op_obj_dim(zval *object, zval *property, zva
 /* Copied codes end */
 
 static void php_taint_mark_strings(zend_array *symbol_table) /* {{{ */ {
+	zend_string *key;
 	zval *val;
-	ZEND_HASH_FOREACH_VAL(symbol_table, val) {
+	ZEND_HASH_FOREACH_STR_KEY_VAL(symbol_table, key, val) {
+		TAINT_MARK(key);
 		ZVAL_DEREF(val);
 		if (Z_TYPE_P(val) == IS_ARRAY) {
 			php_taint_mark_strings(Z_ARRVAL_P(val));
