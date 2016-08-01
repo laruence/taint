@@ -104,6 +104,8 @@ static struct taint_overridden_fucs /* {{{ */ {
 	php_func dirname;
 	php_func basename;
 	php_func pathinfo;
+	php_func serialize;
+	php_func json_encode;
 } taint_origin_funcs;
 
 #define TAINT_O_FUNC(m) (taint_origin_funcs.m)
@@ -514,6 +516,29 @@ static void php_taint_mark_strings(zend_array *symbol_table) /* {{{ */ {
 			TAINT_MARK(Z_STR_P(val));
 		}
 	} ZEND_HASH_FOREACH_END();
+} /* }}} */
+
+static uint32_t php_check_array_tainted(zend_array *symbol_table) /* {{{ */ {
+	zend_ulong id;
+	zend_string *key;
+	zval *val;
+	uint32_t ret;
+
+	ZEND_HASH_FOREACH_KEY_VAL(symbol_table, id, key, val) {
+		if(key && TAINT_POSSIBLE(key)){
+			return TAINT_POSSIBLE(key);
+		}
+		ZVAL_DEREF(val);
+		if (Z_TYPE_P(val) == IS_ARRAY) {
+			ret = php_check_array_tainted(Z_ARRVAL_P(val));
+			if(ret){
+				return ret;
+			}
+		} else if (IS_STRING == Z_TYPE_P(val) && TAINT_POSSIBLE(Z_STR_P(val))) {
+			return TAINT_POSSIBLE(Z_STR_P(val));
+		}
+	} ZEND_HASH_FOREACH_END();
+	return 0;
 } /* }}} */
 
 static zval *php_taint_get_zval_ptr_tmpvar(zend_execute_data *execute_data, uint32_t var, zend_free_op *should_free) /* {{{ */ {
@@ -1133,6 +1158,15 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				break;
 			}
 
+			if (strncmp("json_decode", fname, len) == 0) {
+				/* TODO: allow_classes? */
+				zval *str = ZEND_CALL_ARG(ex, 1);
+				if (IS_STRING == Z_TYPE_P(str) && TAINT_POSSIBLE(Z_STR_P(str))) {
+					php_taint_error(fname, "Attempt to json_decode a string that might be tainted");
+				}
+				break;
+			}
+
 			if (strncmp("mysqli_query", fname, len) == 0
 					|| strncmp("mysqli_prepare", fname, len) == 0
 					|| strncmp("mysql_query", fname, len) == 0
@@ -1307,6 +1341,8 @@ static void php_taint_override_functions() /* {{{ */ {
 	const char *f_dirname     = "dirname";
 	const char *f_basename    = "basename";
 	const char *f_pathinfo    = "pathinfo";
+	const char *f_serialize   = "serialize";
+	const char *f_jsonencode  = "json_encode";
 
 	php_taint_override_func(f_strval, PHP_FN(taint_strval), &TAINT_O_FUNC(strval));
 	php_taint_override_func(f_sprintf, PHP_FN(taint_sprintf), &TAINT_O_FUNC(sprintf));
@@ -1327,6 +1363,8 @@ static void php_taint_override_functions() /* {{{ */ {
 	php_taint_override_func(f_dirname, PHP_FN(taint_dirname), &TAINT_O_FUNC(dirname));
 	php_taint_override_func(f_basename, PHP_FN(taint_basename), &TAINT_O_FUNC(basename));
 	php_taint_override_func(f_pathinfo, PHP_FN(taint_pathinfo), &TAINT_O_FUNC(pathinfo));
+	php_taint_override_func(f_serialize, PHP_FN(taint_serialize), &TAINT_O_FUNC(serialize));
+	php_taint_override_func(f_jsonencode, PHP_FN(taint_jsonencode), &TAINT_O_FUNC(json_encode));
 
 } /* }}} */
 
@@ -1772,6 +1810,59 @@ PHP_FUNCTION(taint_pathinfo) {
 		} else if (IS_ARRAY == Z_TYPE_P(return_value)) {
 			php_taint_mark_strings(Z_ARRVAL_P(return_value));
 		}
+	}
+}
+/* }}} */
+
+/* {{{ proto string serialize(mixed $value)
+*/
+PHP_FUNCTION(taint_serialize) {
+	zval *arr;
+	zend_ulong id;
+	zend_string *key;
+	zval *val;
+	int tainted = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &arr) == FAILURE) {
+		return;
+	}
+
+	if(IS_ARRAY == Z_TYPE_P(arr) && php_check_array_tainted(Z_ARRVAL_P(arr))){
+		tainted = 1;
+	}else if (Z_TYPE_P(arr) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(arr))) {
+		tainted = 1;
+	}
+
+	TAINT_O_FUNC(serialize)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) && Z_STRLEN_P(return_value)) {
+		TAINT_MARK(Z_STR_P(return_value));
+	}
+}
+/* }}} */
+
+/* {{{ proto string json_encode ( mixed $value [, int $options = 0 [, int $depth = 512 ]] )
+*/
+PHP_FUNCTION(taint_jsonencode) {
+	zval *arr;
+	zend_long opt = 0;
+	zend_long depth = 512;
+	int tainted = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z|ll", &arr, &opt, &depth) == FAILURE) {
+		return;
+	}
+
+	if(IS_ARRAY == Z_TYPE_P(arr) && php_check_array_tainted(Z_ARRVAL_P(arr))){
+		tainted = 1;
+	}else if (Z_TYPE_P(arr) == IS_STRING && TAINT_POSSIBLE(Z_STR_P(arr))) {
+		tainted = 1;
+	}
+
+	TAINT_O_FUNC(json_encode)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) && Z_STRLEN_P(return_value)) {
+		TAINT_MARK(Z_STR_P(return_value));
 	}
 }
 /* }}} */
