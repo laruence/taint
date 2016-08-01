@@ -1097,12 +1097,18 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					if (IS_RESOURCE == Z_TYPE_P(fp)) {
 						break;
 					} else if (IS_STRING == Z_TYPE_P(fp)) {
-						if (strncasecmp("php://output", Z_STRVAL_P(fp), Z_STRLEN_P(fp))) {
+						if (strncasecmp("php://output", Z_STRVAL_P(fp), Z_STRLEN_P(fp)) && TAINT_POSSIBLE(Z_STR_P(fp))) {
+							php_taint_error(fname, "Attemp to write file which path might be tainted");
 							break;
 						}
 					}
 					if (IS_STRING == Z_TYPE_P(str) && TAINT_POSSIBLE(Z_STR_P(str))) {
-						php_taint_error(fname, "Attempt to output data that might be tainted");
+						if (strncasecmp("php://output", Z_STRVAL_P(fp), Z_STRLEN_P(fp))){
+							php_taint_error(fname, "Attempt to output data that might be tainted");
+						}else{
+							php_taint_error(fname, "Attempt to print a string that might be tainted")
+						}
+						
 					}
 				}
 				break;
