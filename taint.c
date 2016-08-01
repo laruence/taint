@@ -1218,7 +1218,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				|| strncmp("shell_exec", fname, len) == 0
 				|| strncmp("proc_open", fname, len) == 0 
 				|| strncmp("popen", fname, len) == 0) {
-				zval *cmd = ZEND_CALL_ARG(ex, arg_count);
+				zval *cmd = ZEND_CALL_ARG(ex, 1);
 				if (IS_STRING == Z_TYPE_P(cmd) && TAINT_POSSIBLE(Z_STR_P(cmd))) {
 					php_taint_error(fname, "CMD statement contains data that might be tainted");
 				}
