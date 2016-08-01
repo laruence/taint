@@ -1169,6 +1169,8 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 
 			if (strncmp("mysqli_query", fname, len) == 0
 					|| strncmp("mysqli_prepare", fname, len) == 0
+					|| strncmp("mysqli_multi_query", fname, len) == 0
+					|| strncmp("mysqli_real_query", fname, len) == 0
 					|| strncmp("mysql_query", fname, len) == 0
 					|| strncmp("sqlite_query", fname, len) == 0
 					|| strncmp("sqlite_single_query", fname, len) == 0 ) {
@@ -1234,6 +1236,8 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 
 			if (strncmp("mysqli", class_name, cname_len) == 0) {
 				if (strncmp("query", fname, len) == 0
+					|| strncmp("multi_query", fname, len) == 0
+					|| strncmp("real_query", fname, len) == 0
 					|| strncmp("prepare", fname, len) == 0) {
 					zval *sql = ZEND_CALL_ARG(ex, 1);
 					if (IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
