@@ -99,6 +99,8 @@ PHP_FUNCTION(taint_strtoupper);
 PHP_FUNCTION(taint_dirname);
 PHP_FUNCTION(taint_basename);
 PHP_FUNCTION(taint_pathinfo);
+PHP_FUNCTION(taint_serialize);
+PHP_FUNCTION(taint_jsonencode);
 
 typedef void (*php_func)(INTERNAL_FUNCTION_PARAMETERS);
 
