@@ -54,3 +54,8 @@ Warning: include() [function.include]: File path contains data that might be tai
 
 Warning: mysql_query() [function.mysql-query]: SQL statement contains data that might be tainted
 ````
+
+If you need to hide the errors for a particular script, you can:
+````
+ini_set('taint.error_level', 0);
+````
