@@ -93,6 +93,7 @@ PHP_FUNCTION(taint_ltrim);
 PHP_FUNCTION(taint_strstr);
 PHP_FUNCTION(taint_substr);
 PHP_FUNCTION(taint_str_replace);
+PHP_FUNCTION(taint_str_ireplace);
 PHP_FUNCTION(taint_str_pad);
 PHP_FUNCTION(taint_strtolower);
 PHP_FUNCTION(taint_strtoupper);

@@ -98,6 +98,7 @@ static struct taint_overridden_fucs /* {{{ */ {
 	php_func strstr;
 	php_func str_pad;
 	php_func str_replace;
+	php_func str_ireplace;
 	php_func substr;
 	php_func strtolower;
 	php_func strtoupper;
@@ -1215,25 +1216,26 @@ static void php_taint_override_func(const char *name, php_func handler, php_func
 } /* }}} */
 
 static void php_taint_override_functions() /* {{{ */ {
-	const char *f_join        = "join";
-	const char *f_trim        = "trim";
-	const char *f_split       = "split";
-	const char *f_rtrim       = "rtrim";
-	const char *f_ltrim       = "ltrim";
-	const char *f_strval      = "strval";
-	const char *f_strstr      = "strstr";
-	const char *f_substr      = "substr";
-	const char *f_sprintf     = "sprintf";
-	const char *f_explode     = "explode";
-	const char *f_implode     = "implode";
-	const char *f_str_pad     = "str_pad";
-	const char *f_vsprintf    = "vsprintf";
-	const char *f_str_replace = "str_replace";
-	const char *f_strtolower  = "strtolower";
-	const char *f_strtoupper  = "strtoupper";
-	const char *f_dirname     = "dirname";
-	const char *f_basename    = "basename";
-	const char *f_pathinfo    = "pathinfo";
+	const char *f_join         = "join";
+	const char *f_trim         = "trim";
+	const char *f_split        = "split";
+	const char *f_rtrim        = "rtrim";
+	const char *f_ltrim        = "ltrim";
+	const char *f_strval       = "strval";
+	const char *f_strstr       = "strstr";
+	const char *f_substr       = "substr";
+	const char *f_sprintf      = "sprintf";
+	const char *f_explode      = "explode";
+	const char *f_implode      = "implode";
+	const char *f_str_pad      = "str_pad";
+	const char *f_vsprintf     = "vsprintf";
+	const char *f_str_replace  = "str_replace";
+	const char *f_str_ireplace = "str_ireplace";
+	const char *f_strtolower   = "strtolower";
+	const char *f_strtoupper   = "strtoupper";
+	const char *f_dirname      = "dirname";
+	const char *f_basename     = "basename";
+	const char *f_pathinfo     = "pathinfo";
 
 	php_taint_override_func(f_strval, PHP_FN(taint_strval), &TAINT_O_FUNC(strval));
 	php_taint_override_func(f_sprintf, PHP_FN(taint_sprintf), &TAINT_O_FUNC(sprintf));
@@ -1246,6 +1248,7 @@ static void php_taint_override_functions() /* {{{ */ {
 	php_taint_override_func(f_rtrim, PHP_FN(taint_rtrim), &TAINT_O_FUNC(rtrim));
 	php_taint_override_func(f_ltrim, PHP_FN(taint_ltrim), &TAINT_O_FUNC(ltrim));
 	php_taint_override_func(f_str_replace, PHP_FN(taint_str_replace), &TAINT_O_FUNC(str_replace));
+	php_taint_override_func(f_str_ireplace, PHP_FN(taint_str_ireplace), &TAINT_O_FUNC(str_ireplace));
 	php_taint_override_func(f_str_pad, PHP_FN(taint_str_pad), &TAINT_O_FUNC(str_pad));
 	php_taint_override_func(f_strstr, PHP_FN(taint_strstr), &TAINT_O_FUNC(strstr));
 	php_taint_override_func(f_strtolower, PHP_FN(taint_strtolower), &TAINT_O_FUNC(strtolower));
@@ -1493,6 +1496,31 @@ PHP_FUNCTION(taint_str_replace)
 	}
 
 	TAINT_O_FUNC(str_replace)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+
+	if (tainted && IS_STRING == Z_TYPE_P(return_value) && Z_STRLEN_P(return_value)) {
+		TAINT_MARK(Z_STR_P(return_value));
+	}
+}
+/* }}} */
+
+/* {{{ proto string str_ireplace(mixed $search, mixed $replace, mixed $subject [, int &$count])
+*/
+PHP_FUNCTION(taint_str_ireplace)
+{
+	zval *str, *from, *len, *repl;
+	int tainted = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "zzz|z", &str, &repl, &from, &len) == FAILURE) {
+		return;
+	}
+
+	if (IS_STRING == Z_TYPE_P(repl) && TAINT_POSSIBLE(Z_STR_P(repl))) {
+		tainted = 1;
+	} else if (IS_STRING == Z_TYPE_P(from) && TAINT_POSSIBLE(Z_STR_P(from))) {
+		tainted = 1;
+	}
+
+	TAINT_O_FUNC(str_ireplace)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 
 	if (tainted && IS_STRING == Z_TYPE_P(return_value) && Z_STRLEN_P(return_value)) {
 		TAINT_MARK(Z_STR_P(return_value));

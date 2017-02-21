@@ -18,6 +18,9 @@ var_dump(is_tainted($b));
 $b = str_replace("str,", "btr", $a);
 var_dump(is_tainted($b));
 
+$b = str_ireplace("str,", "btr", $a);
+var_dump(is_tainted($b));
+
 $b = str_pad($a, 32);
 var_dump(is_tainted($b));
 
@@ -31,6 +34,7 @@ $b = strtoupper($a);
 var_dump(is_tainted($b));
 ?>
 --EXPECTF--
+bool(true)
 bool(true)
 bool(true)
 bool(true)
