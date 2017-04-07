@@ -14,4 +14,4 @@ $query = preg_replace('{^\s*SELECT}i', 'SELECT/*', $query, 1);
 var_dump(is_tainted($query));
 --EXPECTF--
 bool(true)
-bool(true)
+bool(false)
