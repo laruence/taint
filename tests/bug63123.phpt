@@ -10,7 +10,7 @@ taint.enable=1
 $str = 'a,' . 'b';
 taint($str);
 $a = explode(',', $str);
-while (list($key, $val) = each($a)) {
+while (list($key, $val) = @each($a)) {
     echo $val;
 }
 
