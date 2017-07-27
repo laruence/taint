@@ -13,19 +13,20 @@
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2016-07-04</date>
- <time>12:14:00</time>
+ <date>2017-07-27</date>
+ <time>18:38:00</time>
  <version>
-  <release>2.0.2</release>
-  <api>2.0.2</api>
+  <release>2.0.3</release>
+  <api>2.0.3</api>
  </version>
  <stability>
-  <release>beta</release>
-  <api>beta</api>
+  <release>stable</release>
+  <api>stable</api>
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
  <notes> 
-  - Fixed build with PHP-7.1
+  - Support str_ireplace
+  - Fixed arg order of mysqli
  </notes>
  <contents> 
   <dir name="/"> 
@@ -78,6 +79,23 @@
  <extsrcrelease />
  <changelog> 
   <release> 
+   <date>2017-07-27</date> 
+   <version> 
+    <release>2.0.3</release> 
+    <api>2.0.3</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+    - Support str_ireplace
+    - Fixed arg order of mysqli
+   </notes> 
+  </release> 
+
+  <release> 
    <date>2016-07-04</date> 
    <version> 
     <release>2.0.2</release> 
@@ -92,7 +110,6 @@
     - Fixed build with PHP-7.1
    </notes> 
   </release> 
-
   <release> 
    <date>2015-12-12</date> 
    <version> 
