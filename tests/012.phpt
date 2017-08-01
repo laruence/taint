@@ -20,9 +20,9 @@ test();
 --EXPECTF--
 Warning: test() [echo]: Attempt to echo a string that might be tainted in %s012.php on line 5
 %s
-Warning: test() [echo]: Attempt to echo a string that might be tainted in %stests/012.php on line 6
+Warning: test() [echo]: Attempt to echo a string that might be tainted in %s012.php on line 6
 012.php
 Warning: test() [echo]: Attempt to echo a string that might be tainted in %s012.php on line 7
 012.php
-Warning: test() [echo]: Attempt to echo a string that might be tainted in %stests/012.php on line 8
+Warning: test() [echo]: Attempt to echo a string that might be tainted in %s012.php on line 8
 %s
