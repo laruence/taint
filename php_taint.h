@@ -95,8 +95,8 @@ extern zend_module_entry taint_module_entry;
 #define INIT_PZVAL_COPY(z,v) \
 	(z)->value = (v)->value; \
 	Z_TYPE_P(z) = Z_TYPE_P(v); \
-	(z)->refcount = 1; \
-	(z)->is_ref = 0;
+	Z_SET_REFCOUNT_P(z, 1); \
+	Z_UNSET_ISREF_P(z);
 #endif
 
 #ifndef MAKE_REAL_ZVAL_PTR
@@ -139,11 +139,11 @@ extern zend_module_entry taint_module_entry;
 		(ai).ptr = NULL; \
 	}
 
-#define TAINT_AI_SET_PTR(t, val) do {   \
-        temp_variable *__t = (t); \
-        __t->var.ptr = (val);  \
-        __t->var.ptr_ptr = &__t->var.ptr; \
-    } while (0)
+//#define TAINT_AI_SET_PTR(t, val) do {   \
+//        temp_variable *__t = (t); \
+//        __t->var.ptr = (val);  \
+//        __t->var.ptr_ptr = &__t->var.ptr; \
+//    } while (0)
 
 #define TAINT_FREE_OP(should_free) \
 	if (should_free.var) { \
