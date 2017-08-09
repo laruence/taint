@@ -13,11 +13,11 @@
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2017-07-27</date>
- <time>18:38:00</time>
+ <date>2017-08-09</date>
+ <time>13:30:00</time>
  <version>
-  <release>2.0.3</release>
-  <api>2.0.3</api>
+  <release>2.0.4</release>
+  <api>2.0.4</api>
  </version>
  <stability>
   <release>stable</release>
@@ -25,8 +25,7 @@
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
  <notes> 
-  - Support str_ireplace
-  - Fixed arg order of mysqli
+  - PHP-7.2 Compatibility
  </notes>
  <contents> 
   <dir name="/"> 
@@ -79,6 +78,22 @@
  <extsrcrelease />
  <changelog> 
   <release> 
+   <date>2017-08-09</date> 
+   <version> 
+    <release>2.0.4</release> 
+    <api>2.0.4</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+    - PHP-7.2 Compatibility
+   </notes> 
+  </release> 
+
+  <release> 
    <date>2017-07-27</date> 
    <version> 
     <release>2.0.3</release> 
@@ -94,7 +109,6 @@
     - Fixed arg order of mysqli
    </notes> 
   </release> 
-
   <release> 
    <date>2016-07-04</date> 
    <version> 
