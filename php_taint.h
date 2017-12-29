@@ -39,21 +39,11 @@ extern zend_module_entry taint_module_entry;
  * any other extension agianst string */
 #define IS_STR_TAINT_POSSIBLE    (1<<7)
 
-#if PHP_VERSION_ID > 70000 
-# if PHP_VERSION_ID < 70100
-# define PHP_7_0  1
-# define PHP_7_1  0
-# elif PHP_VERSION_ID < 70200
-# define PHP_7_0  0
-# define PHP_7_1  1
-# elif PHP_VERSION_ID < 70300
-# undef IS_STR_TAINT_POSSIBLE
-/* Coflicts with GC_COLLECTABLE which is introduced in 7.2 */
-# define IS_STR_TAINT_POSSIBLE (1<<6)
-# define PHP_7_0  0
-# define PHP_7_1  2
-# else
-# error "Unsupported PHP Version ID:" PHP_VERSION_ID
+#if PHP_VERSION_ID > 70000
+# if PHP_VERSION_ID >= 70200
+#  undef IS_STR_TAINT_POSSIBLE
+   /* Coflicts with GC_COLLECTABLE which is introduced in 7.2 */
+#  define IS_STR_TAINT_POSSIBLE (1<<6)
 # endif
 #else
 # error "Unsupported PHP Version ID:" PHP_VERSION_ID
@@ -67,11 +57,11 @@ extern zend_module_entry taint_module_entry;
 #define TAINT_OP2_TYPE(opline)	(opline->op2_type)
 
 
-#if PHP_7_0
+#if PHP_VERSION_ID < 70100
 #define TAINT_RET_USED(opline) (!((opline)->result_type & EXT_TYPE_UNUSED))
 #define TAINT_ISERR(var)       (var == &EG(error_zval))
 #define TAINT_ERR_ZVAL(var)    (var = &EG(error_zval))
-#elif PHP_7_1 
+#else
 #define TAINT_RET_USED(opline) ((opline)->result_type != IS_UNUSED)
 #define TAINT_ISERR(var)       (Z_ISERROR_P(var))
 #define TAINT_ERR_ZVAL(var)    (ZVAL_ERROR(var))
