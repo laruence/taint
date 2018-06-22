@@ -45,17 +45,24 @@ extern zend_module_entry taint_module_entry;
    /* Coflicts with GC_COLLECTABLE which is introduced in 7.2 */
 #  define IS_STR_TAINT_POSSIBLE (1<<6)
 # endif
+# if PHP_VERSION_ID >=70300
+#  define EX_CONSTANT(op) RT_CONSTANT(EX(opline), op)
+#  undef IS_STR_TAINT_POSSIBLE
+#  define IS_STR_TAINT_POSSIBLE (1<<5) /* GC_PROTECTED */
+#  define TAINT_MARK(str)     GC_ADD_FLAGS(str, IS_STR_TAINT_POSSIBLE)
+#  define TAINT_POSSIBLE(str) (GC_FLAGS((str)) & IS_STR_TAINT_POSSIBLE)
+#  define TAINT_CLEAN(str)    GC_DEL_FLAGS(str, IS_STR_TAINT_POSSIBLE)
+# else
+#  define TAINT_MARK(str)     (GC_FLAGS((str)) |= IS_STR_TAINT_POSSIBLE)
+#  define TAINT_POSSIBLE(str) (GC_FLAGS((str)) & IS_STR_TAINT_POSSIBLE)
+#  define TAINT_CLEAN(str)    (GC_FLAGS((str)) &= ~IS_STR_TAINT_POSSIBLE)
+# endif
 #else
 # error "Unsupported PHP Version ID:" PHP_VERSION_ID
 #endif
 
-#define TAINT_MARK(str)		(GC_FLAGS((str)) |= IS_STR_TAINT_POSSIBLE)
-#define TAINT_POSSIBLE(str) (GC_FLAGS((str)) & IS_STR_TAINT_POSSIBLE)
-#define TAINT_CLEAN(str)  	(GC_FLAGS((str)) &= ~IS_STR_TAINT_POSSIBLE)
-
 #define TAINT_OP1_TYPE(opline)	(opline->op1_type)
 #define TAINT_OP2_TYPE(opline)	(opline->op2_type)
-
 
 #if PHP_VERSION_ID < 70100
 #define TAINT_RET_USED(opline) (!((opline)->result_type & EXT_TYPE_UNUSED))
