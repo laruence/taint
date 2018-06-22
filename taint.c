@@ -661,7 +661,7 @@ static int php_taint_init_dynamic_fcall_handler(zend_execute_data *execute_data)
 			}
 		} else if (IS_ARRAY == Z_TYPE_P(op2)) {
 			zval *cname = zend_hash_index_find(Z_ARRVAL_P(op2), 0);
-			zval *mname = zend_hash_index_find(Z_ARRVAL_P(op2), 0);
+			zval *mname = zend_hash_index_find(Z_ARRVAL_P(op2), 1);
 
 			if (cname && IS_STRING == Z_TYPE_P(cname) && TAINT_POSSIBLE(Z_STR_P(cname))) {
 				php_taint_error("fcall", "Attempt to call a method of a class which name might be tainted");
@@ -1113,7 +1113,7 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					}
 				} else if (IS_ARRAY == Z_TYPE_P(callback)) {
 					zval *cname = zend_hash_index_find(Z_ARRVAL_P(callback), 0);
-					zval *mname = zend_hash_index_find(Z_ARRVAL_P(callback), 0);
+					zval *mname = zend_hash_index_find(Z_ARRVAL_P(callback), 1);
 
 					if (cname && IS_STRING == Z_TYPE_P(cname) && TAINT_POSSIBLE(Z_STR_P(cname))) {
 						php_taint_error(ZSTR_VAL(fname), "Callback class name contains data that might be tainted");
