@@ -39,7 +39,7 @@ extern zend_module_entry taint_module_entry;
  * any other extension agianst string */
 #define IS_STR_TAINT_POSSIBLE    (1<<7)
 
-#if PHP_VERSION_ID > 70000
+#if PHP_VERSION_ID >= 70000
 # if PHP_VERSION_ID >= 70200
 #  undef IS_STR_TAINT_POSSIBLE
    /* Coflicts with GC_COLLECTABLE which is introduced in 7.2 */
