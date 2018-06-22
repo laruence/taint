@@ -1377,9 +1377,11 @@ PHP_FUNCTION(taint_implode) {
 	zval *target = NULL;
 	int tainted = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z|z", &op1, &op2) == FAILURE) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(1, 2)
+		Z_PARAM_ZVAL(op1)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_ZVAL(op2)
+	ZEND_PARSE_PARAMETERS_END();
 
 	if (op2 == NULL) {
 		target = op1;
@@ -1413,9 +1415,11 @@ PHP_FUNCTION(taint_trim)
 	zend_string *str, *what;
 	int tainted = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "S|S", &str, &what) == FAILURE) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(1, 2)
+		Z_PARAM_STR(str)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_STR(what)
+	ZEND_PARSE_PARAMETERS_END();
 
 	if (TAINT_POSSIBLE(str)) {
 		tainted = 1;
@@ -1437,9 +1441,11 @@ PHP_FUNCTION(taint_rtrim)
 	zend_string *str, *what;
 	int tainted = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "S|S", &str, &what) == FAILURE) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(1, 2)
+		Z_PARAM_STR(str)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_STR(what)
+	ZEND_PARSE_PARAMETERS_END();
 
 	if (TAINT_POSSIBLE(str)) {
 		tainted = 1;
@@ -1461,9 +1467,11 @@ PHP_FUNCTION(taint_ltrim)
 	zend_string *str, *what;
 	int tainted = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "S|S", &str, &what) == FAILURE) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(1, 2)
+		Z_PARAM_STR(str)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_STR(what)
+	ZEND_PARSE_PARAMETERS_END();
 
 	if (TAINT_POSSIBLE(str)) {
 		tainted = 1;
@@ -1590,9 +1598,12 @@ PHP_FUNCTION(taint_substr)
 	zend_long l = 0, f;
 	int	tainted = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "Sl|l", &str, &f, &l) == FAILURE) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(2, 3)
+		Z_PARAM_STR(str)
+		Z_PARAM_LONG(f)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_LONG(l)
+	ZEND_PARSE_PARAMETERS_END();
 
 	if (TAINT_POSSIBLE(str)) {
 		tainted = 1;
