@@ -105,11 +105,7 @@ PHP_FUNCTION(taint_dirname);
 PHP_FUNCTION(taint_basename);
 PHP_FUNCTION(taint_pathinfo);
 
-#if PHP_VERSION_ID >= 70300
-typedef void (ZEND_FASTCALL *php_func)(INTERNAL_FUNCTION_PARAMETERS);
-#else
-typedef void (*php_func)(INTERNAL_FUNCTION_PARAMETERS);
-#endif
+typedef zif_handler php_func;
 
 ZEND_BEGIN_MODULE_GLOBALS(taint)
 	zend_bool enable;
