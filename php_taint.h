@@ -106,7 +106,7 @@ PHP_FUNCTION(taint_basename);
 PHP_FUNCTION(taint_pathinfo);
 
 #if PHP_VERSION_ID >= 70300
-typedef void (ZEND_FASTCALL *php_func)(INTERNAL_FUNCTION_PARAMETERS);
+typedef zif_handler php_func;
 #else
 typedef void (*php_func)(INTERNAL_FUNCTION_PARAMETERS);
 #endif
