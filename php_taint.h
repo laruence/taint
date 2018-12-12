@@ -65,6 +65,7 @@ extern zend_module_entry taint_module_entry;
 #define TAINT_OP2_TYPE(opline)	(opline->op2_type)
 
 #if PHP_VERSION_ID < 70100
+#define PHP_7_0 1
 #define TAINT_RET_USED(opline) (!((opline)->result_type & EXT_TYPE_UNUSED))
 #define TAINT_ISERR(var)       (var == &EG(error_zval))
 #define TAINT_ERR_ZVAL(var)    (var = &EG(error_zval))
