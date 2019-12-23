@@ -995,6 +995,38 @@ static int php_taint_assign_concat_handler(zend_execute_data *execute_data) /* {
 	}
 } /* }}} */
 
+#if PHP_VERSION_ID >= 70400
+static int php_taint_assign_op_handler(zend_execute_data *execute_data) /* {{{ */ {
+	const zend_op *opline = execute_data->opline;
+
+	if (UNEXPECTED(opline->extended_value == ZEND_CONCAT)) {
+		return php_taint_binary_assign_op_helper(concat_function, execute_data);
+	}
+
+	return ZEND_USER_OPCODE_DISPATCH;
+} /* }}} */
+
+static int php_taint_assign_dim_op_handler(zend_execute_data *execute_data) /* {{{ */ {
+	const zend_op *opline = execute_data->opline;
+
+	if (UNEXPECTED(opline->extended_value == ZEND_CONCAT)) {
+		return php_taint_binary_assign_op_dim_helper(concat_function, execute_data);
+	}
+
+	return ZEND_USER_OPCODE_DISPATCH;
+} /* }}} */
+
+static int php_taint_assign_obj_op_handler(zend_execute_data *execute_data) /* {{{ */ {
+	const zend_op *opline = execute_data->opline;
+
+	if (UNEXPECTED(opline->extended_value == ZEND_CONCAT)) {
+		return php_taint_binary_assign_op_obj_helper(concat_function, execute_data);
+	}
+
+	return ZEND_USER_OPCODE_DISPATCH;
+} /* }}} */
+#endif
+
 static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, zend_function *fbc) /* {{{ */ {
 	int arg_count = ZEND_CALL_NUM_ARGS(ex);
 
@@ -1198,7 +1230,13 @@ static void php_taint_register_handlers() /* {{{ */ {
 	zend_set_user_opcode_handler(ZEND_INCLUDE_OR_EVAL, php_taint_include_or_eval_handler);
 	zend_set_user_opcode_handler(ZEND_CONCAT, php_taint_concat_handler);
 	zend_set_user_opcode_handler(ZEND_FAST_CONCAT, php_taint_concat_handler);
+#if PHP_VERSION_ID < 70400
 	zend_set_user_opcode_handler(ZEND_ASSIGN_CONCAT, php_taint_assign_concat_handler);
+#else
+	zend_set_user_opcode_handler(ZEND_ASSIGN_OP, php_taint_assign_op_handler);
+	zend_set_user_opcode_handler(ZEND_ASSIGN_DIM_OP, php_taint_assign_dim_op_handler);
+	zend_set_user_opcode_handler(ZEND_ASSIGN_OBJ_OP, php_taint_assign_obj_op_handler);
+#endif
 	zend_set_user_opcode_handler(ZEND_ROPE_END, php_taint_rope_handler);
 	zend_set_user_opcode_handler(ZEND_DO_FCALL, php_taint_fcall_handler);
 	zend_set_user_opcode_handler(ZEND_DO_ICALL, php_taint_fcall_handler);
