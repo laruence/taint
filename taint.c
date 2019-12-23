@@ -248,7 +248,7 @@ str_index:
 				hval = zend_dval_to_lval(Z_DVAL_P(dim));
 				goto num_index;
 			case IS_RESOURCE:
-				zend_error(E_NOTICE, "Resource ID#%pd used as offset, casting to integer (%pd)", Z_RES_HANDLE_P(dim), Z_RES_HANDLE_P(dim));
+				zend_error(E_NOTICE, "Resource ID#%d used as offset, casting to integer (%d)", Z_RES_HANDLE_P(dim), Z_RES_HANDLE_P(dim));
 				hval = Z_RES_HANDLE_P(dim);
 				goto num_index;
 			case IS_FALSE:
@@ -610,7 +610,7 @@ static void php_taint_error(const char *fname, const char *format, ...) /* {{{ *
 	vspprintf(&buffer, 0, format, args);
 	spprintf(&msg, 0, "%s() [%s]: %s", get_active_function_name(), fname, buffer);
 	efree(buffer);
-	zend_error(TAINT_G(error_level), msg);
+	zend_error(TAINT_G(error_level), "%s", msg);
 	efree(msg);
 	va_end(args);
 } /* }}} */
