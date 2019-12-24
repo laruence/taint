@@ -19,4 +19,4 @@ before_script:
     - ./travis/compile.sh
 
 # Run PHPs run-tests.php 
-script: make test && find ./test -name "*.diff" | xargs -n1 cat
+script: make test || find ./test -name "*.diff" | xargs -n1 cat
