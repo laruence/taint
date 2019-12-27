@@ -263,7 +263,7 @@ str_index:
 			default:
 				zend_error(E_WARNING, "Illegal offset type");
 				retval = (type == BP_VAR_W || type == BP_VAR_RW) ?
-#if PHP_7_0
+#if PHP_VERSION_ID < 70100
 					&EG(error_zval)
 #else
 					NULL
@@ -286,7 +286,7 @@ fetch_from_array:
 			retval = zend_hash_next_index_insert(Z_ARRVAL_P(container), &EG(uninitialized_zval));
 			if (UNEXPECTED(retval == NULL)) {
 				zend_error(E_WARNING, "Cannot add element to the array as the next element is already occupied");
-#if PHP_7_0	
+#if PHP_VERSION_ID < 70100
 				retval = &EG(error_zval);
 #else
 				ZVAL_ERROR(result);
@@ -315,14 +315,14 @@ convert_to_array:
 
 		if (dim == NULL) {
 			zend_throw_error(NULL, "[] operator not supported for strings");
-#if PHP_7_0
+#if PHP_VERSION_ID < 70100
 			ZVAL_INDIRECT(result, &EG(error_zval));
 #else
 			ZVAL_ERROR(result);
 #endif
 		} else {
 			php_taint_check_string_offset(dim, type);
-#if PHP_7_0
+#if PHP_VERSION_ID < 70100
 			ZVAL_INDIRECT(result, NULL); /* wrong string offset */
 #else
 			ZVAL_ERROR(result);
@@ -331,7 +331,7 @@ convert_to_array:
 	} else if (EXPECTED(Z_TYPE_P(container) == IS_OBJECT)) {
 		if (!Z_OBJ_HT_P(container)->read_dimension) {
 			zend_throw_error(NULL, "Cannot use object as array");
-#if PHP_7_0
+#if PHP_VERSION_ID < 70100
 			retval = &EG(error_zval);
 #else
 			ZVAL_ERROR(result);
@@ -368,7 +368,7 @@ convert_to_array:
 					ZVAL_INDIRECT(result, retval);
 				}
 			} else {
-#if PHP_7_0
+#if PHP_VERSION_ID < 70100
 				ZVAL_INDIRECT(result, &EG(error_zval));
 #else
 				ZVAL_ERROR(result);
@@ -377,7 +377,7 @@ convert_to_array:
 		}
 	} else if (EXPECTED(Z_TYPE_P(container) <= IS_FALSE)) {
 		if (UNEXPECTED(TAINT_ISERR(container))) {
-#if PHP_7_0
+#if PHP_VERSION_ID < 70100
 			ZVAL_INDIRECT(result, &EG(error_zval));
 #else
 			ZVAL_ERROR(result);
@@ -394,7 +394,7 @@ convert_to_array:
 			ZVAL_NULL(result);
 		} else {
 			zend_error(E_WARNING, "Cannot use a scalar value as an array");
-#if PHP_7_0
+#if PHP_VERSION_ID < 70100
 			ZVAL_INDIRECT(result, &EG(error_zval));
 #else
 			ZVAL_ERROR(result);
