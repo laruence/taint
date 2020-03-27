@@ -28,6 +28,8 @@
 #include "ext/standard/info.h"
 #include "php_taint.h"
 
+static void *origin_opcode_handler[255];
+
 ZEND_DECLARE_MODULE_GLOBALS(taint)
 
 /* {{{ TAINT_ARG_INFO
@@ -615,6 +617,12 @@ static void php_taint_error(const char *fname, const char *format, ...) /* {{{ *
 	va_end(args);
 } /* }}} */
 
+#define CALL_ORIGIN_HANDLER() do { \
+	if (origin_opcode_handler[opline->opcode]) { \
+		return ((user_opcode_handler_t)(origin_opcode_handler[opline->opcode]))(execute_data); \
+	} \
+} while (0)
+
 static int php_taint_echo_handler(zend_execute_data *execute_data) /* {{{ */ {
 	const zend_op *opline = execute_data->opline;
 	taint_free_op free_op1;
@@ -630,6 +638,7 @@ static int php_taint_echo_handler(zend_execute_data *execute_data) /* {{{ */ {
 		}
 	}
 
+	CALL_ORIGIN_HANDLER();
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
@@ -644,6 +653,7 @@ static int php_taint_exit_handler(zend_execute_data *execute_data) /* {{{ */ {
 		php_taint_error("exit", "Attempt to output a string that might be tainted");
 	}
 
+	CALL_ORIGIN_HANDLER();
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
@@ -671,6 +681,7 @@ static int php_taint_init_dynamic_fcall_handler(zend_execute_data *execute_data)
 		}
 	}
 
+	CALL_ORIGIN_HANDLER();
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
@@ -700,6 +711,7 @@ static int php_taint_include_or_eval_handler(zend_execute_data *execute_data) /*
 				break;
 		}
 
+	CALL_ORIGIN_HANDLER();
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
@@ -739,8 +751,8 @@ static int php_taint_rope_handler(zend_execute_data *execute_data) /* {{{ */ {
 		TAINT_MARK(Z_STR_P(result));
 	}
 
+	CALL_ORIGIN_HANDLER();
 	execute_data->opline++;
-
 	return ZEND_USER_OPCODE_CONTINUE;
 } /* }}} */
 
@@ -774,8 +786,8 @@ static int php_taint_concat_handler(zend_execute_data *execute_data) /* {{{ */ {
 		zval_ptr_dtor_nogc(free_op2);
 	}
 
+	CALL_ORIGIN_HANDLER();
 	execute_data->opline++;
-
 	return ZEND_USER_OPCODE_CONTINUE;
 } /* }}} */
 
@@ -790,6 +802,7 @@ static int php_taint_binary_assign_op_helper(binary_op_type binary_op, zend_exec
 
 	if (opline->op1_type == IS_VAR) {
 		if (var_ptr == NULL || TAINT_ISERR(var_ptr)) {
+			CALL_ORIGIN_HANDLER();
 			return ZEND_USER_OPCODE_DISPATCH;
 		}
 	}
@@ -819,8 +832,8 @@ static int php_taint_binary_assign_op_helper(binary_op_type binary_op, zend_exec
 		zval_ptr_dtor_nogc(free_op2);
 	}
 
+	CALL_ORIGIN_HANDLER();
 	execute_data->opline++;
-
 	return ZEND_USER_OPCODE_CONTINUE; 
 } /* }}} */
 
@@ -832,9 +845,11 @@ static int php_taint_binary_assign_op_obj_helper(binary_op_type binary_op, zend_
 
 	object = php_taint_get_zval_ptr_ptr(execute_data, opline->op1_type, opline->op1, &free_op1, BP_VAR_RW);
 	if (opline->op1_type == IS_UNUSED && Z_OBJ_P(object) == NULL) {
+		CALL_ORIGIN_HANDLER();
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 	if (opline->op1_type == IS_VAR && object == NULL) {
+		CALL_ORIGIN_HANDLER();
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 
@@ -889,8 +904,9 @@ static int php_taint_binary_assign_op_obj_helper(binary_op_type binary_op, zend_
 	if ((opline->op1_type & (IS_VAR|IS_TMP_VAR)) && free_op1) {
 		zval_ptr_dtor_nogc(free_op1);
 	}
-	execute_data->opline += 2;
 
+	CALL_ORIGIN_HANDLER();
+	execute_data->opline += 2;
 	return ZEND_USER_OPCODE_CONTINUE;
 }
 /* }}} */
@@ -903,9 +919,11 @@ static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_
 
 	container = php_taint_get_zval_ptr_ptr(execute_data, opline->op1_type, opline->op1, &free_op1, BP_VAR_RW);
 	if (opline->op1_type == IS_UNUSED && Z_OBJ_P(container) == NULL) {
+		CALL_ORIGIN_HANDLER();
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 	if (opline->op1_type == IS_VAR && container == NULL) {
+		CALL_ORIGIN_HANDLER();
 		return ZEND_USER_OPCODE_DISPATCH;
 	}
 
@@ -938,6 +956,7 @@ static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_
 			if ((opline->op1_type & (IS_VAR|IS_TMP_VAR)) && free_op1) {
 				zval_ptr_dtor_nogc(free_op1);
 			}
+			CALL_ORIGIN_HANDLER();
 			execute_data->opline += 2;
 			return ZEND_USER_OPCODE_CONTINUE;
 		}
@@ -977,6 +996,9 @@ static int php_taint_binary_assign_op_dim_helper(binary_op_type binary_op, zend_
 	if ((opline->op1_type & (IS_VAR|IS_TMP_VAR)) && free_op1) {
 		zval_ptr_dtor_nogc(free_op1);
 	}
+
+	CALL_ORIGIN_HANDLER();
+	
 	execute_data->opline += 2;
 
 	return ZEND_USER_OPCODE_CONTINUE;
@@ -1003,6 +1025,7 @@ static int php_taint_assign_op_handler(zend_execute_data *execute_data) /* {{{ *
 		return php_taint_binary_assign_op_helper(concat_function, execute_data);
 	}
 
+	CALL_ORIGIN_HANDLER();
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
@@ -1013,6 +1036,7 @@ static int php_taint_assign_dim_op_handler(zend_execute_data *execute_data) /* {
 		return php_taint_binary_assign_op_dim_helper(concat_function, execute_data);
 	}
 
+	CALL_ORIGIN_HANDLER();
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
@@ -1023,6 +1047,7 @@ static int php_taint_assign_obj_op_handler(zend_execute_data *execute_data) /* {
 		return php_taint_binary_assign_op_obj_helper(concat_function, execute_data);
 	}
 
+	CALL_ORIGIN_HANDLER();
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 #endif
@@ -1219,28 +1244,47 @@ static int php_taint_fcall_handler(zend_execute_data *execute_data) /* {{{ */ {
 		php_taint_fcall_check(call, opline, fbc);
 	}
 
+	CALL_ORIGIN_HANDLER();
 	return ZEND_USER_OPCODE_DISPATCH;
 } /* }}} */
 
-static void php_taint_register_handlers() /* {{{ */ {
-	zend_set_user_opcode_handler(ZEND_ECHO, php_taint_echo_handler);
-	zend_set_user_opcode_handler(ZEND_EXIT, php_taint_exit_handler);
-	zend_set_user_opcode_handler(ZEND_INIT_USER_CALL, php_taint_init_dynamic_fcall_handler);
-	zend_set_user_opcode_handler(ZEND_INIT_DYNAMIC_CALL, php_taint_init_dynamic_fcall_handler);
-	zend_set_user_opcode_handler(ZEND_INCLUDE_OR_EVAL, php_taint_include_or_eval_handler);
-	zend_set_user_opcode_handler(ZEND_CONCAT, php_taint_concat_handler);
-	zend_set_user_opcode_handler(ZEND_FAST_CONCAT, php_taint_concat_handler);
+/* Taint custom opcode handlers {{{ */
+typedef struct {
+	zend_uchar opcode;
+	void      *handler;
+} taint_custom_handler;
+
+static const taint_custom_handler override_opcode_handlers[] = {
+	{ ZEND_ECHO, php_taint_echo_handler },
+	{ ZEND_EXIT, php_taint_exit_handler },
+	{ ZEND_INIT_USER_CALL, php_taint_init_dynamic_fcall_handler },
+	{ ZEND_INIT_DYNAMIC_CALL, php_taint_init_dynamic_fcall_handler },
+	{ ZEND_INCLUDE_OR_EVAL, php_taint_include_or_eval_handler },
+	{ ZEND_CONCAT, php_taint_concat_handler },
+	{ ZEND_FAST_CONCAT, php_taint_concat_handler },
 #if PHP_VERSION_ID < 70400
-	zend_set_user_opcode_handler(ZEND_ASSIGN_CONCAT, php_taint_assign_concat_handler);
+	{ ZEND_ASSIGN_CONCAT, php_taint_assign_concat_handler },
 #else
-	zend_set_user_opcode_handler(ZEND_ASSIGN_OP, php_taint_assign_op_handler);
-	zend_set_user_opcode_handler(ZEND_ASSIGN_DIM_OP, php_taint_assign_dim_op_handler);
-	zend_set_user_opcode_handler(ZEND_ASSIGN_OBJ_OP, php_taint_assign_obj_op_handler);
+	{ ZEND_ASSIGN_OP, php_taint_assign_op_handler },
+	{ ZEND_ASSIGN_DIM_OP, php_taint_assign_dim_op_handler },
+	{ ZEND_ASSIGN_OBJ_OP, php_taint_assign_obj_op_handler },
 #endif
-	zend_set_user_opcode_handler(ZEND_ROPE_END, php_taint_rope_handler);
-	zend_set_user_opcode_handler(ZEND_DO_FCALL, php_taint_fcall_handler);
-	zend_set_user_opcode_handler(ZEND_DO_ICALL, php_taint_fcall_handler);
-	zend_set_user_opcode_handler(ZEND_DO_FCALL_BY_NAME, php_taint_fcall_handler);
+	{ ZEND_ROPE_END, php_taint_rope_handler },
+	{ ZEND_DO_FCALL, php_taint_fcall_handler },
+	{ ZEND_DO_ICALL, php_taint_fcall_handler },
+	{ ZEND_DO_FCALL_BY_NAME, php_taint_fcall_handler }
+};
+/* }}} */
+
+static void php_taint_register_handlers() /* {{{ */ {
+	int idx;
+	for (idx = 0; idx < sizeof(override_opcode_handlers)/sizeof(taint_custom_handler); idx++) {
+		origin_opcode_handler[idx] = (void*)zend_get_user_opcode_handler(override_opcode_handlers[idx].opcode);
+	}
+	for (idx = 0; idx < sizeof(override_opcode_handlers)/sizeof(taint_custom_handler); idx++) {
+		zend_set_user_opcode_handler(override_opcode_handlers[idx].opcode, (user_opcode_handler_t)override_opcode_handlers[idx].handler);
+	}
+	return;
 } /* }}} */
 
 static void php_taint_override_func(const char *name, php_func handler, php_func *stash) /* {{{ */ {
