@@ -62,7 +62,7 @@ zend_function_entry taint_functions[] = {
 /** {{{ module depends
 */
 zend_module_dep taint_deps[] = {
-	ZEND_MOD_CONFLICTS("xdebug")
+	/* ZEND_MOD_CONFLICTS("xdebug") */
 	{NULL, NULL, NULL}
 };
 /* }}} */
