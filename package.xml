@@ -13,11 +13,11 @@
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2019-12-23</date>
- <time>16:20:00</time>
+ <date>2020-04-09</date>
+ <time>21:00:00</time>
  <version>
-  <release>2.0.6</release>
-  <api>2.0.6</api>
+  <release>2.1.0</release>
+  <api>2.1.0</api>
  </version>
  <stability>
   <release>stable</release>
@@ -25,7 +25,7 @@
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
  <notes> 
-  - PHP-7.4 Compatibility
+   - Fixed conflicts with Xdebug
  </notes>
  <contents> 
   <dir name="/"> 
@@ -78,6 +78,22 @@
  <extsrcrelease />
  <changelog> 
   <release> 
+   <date>2020-04-09</date> 
+   <version> 
+    <release>2.1.0</release> 
+    <api>2.1.0</api> 
+   </version> 
+   <stability> 
+    <release>beta</release> 
+    <api>beta</api> 
+   </stability> 
+   <license uri="http://www.php.net/license">PHP License</license> 
+   <notes> 
+    - Fixed conflicts with Xdebug
+   </notes> 
+  </release> 
+
+  <release> 
    <date>2019-12-23</date> 
    <version> 
     <release>2.0.6</release> 
@@ -92,7 +108,6 @@
     - PHP-7.4 Compatibility
    </notes> 
   </release> 
-
   <release> 
    <date>2018-12-12</date> 
    <version> 
