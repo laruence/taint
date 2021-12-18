@@ -11,6 +11,9 @@ Please note that do not enable this extension in product env, since it will slow
 ## Requirement
 - PHP-5.2 +
 
+##Note
+Due to complication of PHP8.0 implementation, taint is not going to be compatible with PHP8.0+.
+
 ## Install
 taint is an PECL extension, thus you can simply install it by:
 ````
