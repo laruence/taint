@@ -1,5 +1,5 @@
 # Taint
-[![Build Status](https://secure.travis-ci.org/laruence/taint.png)](http://travis-ci.org/laruence/taint) [![Build status](https://ci.appveyor.com/api/projects/status/69ucxc2pwx333s3j/branch/master?svg=true)](https://ci.appveyor.com/project/laruence/taint/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/69ucxc2pwx333s3j/branch/master?svg=true)](https://ci.appveyor.com/project/laruence/taint/branch/master)
 
 php extension used to detect XSS codes(tainted string), And also can be used to spot sql injection vulnerabilities, shell inject, etc.
 
@@ -10,7 +10,7 @@ Please note that do not enable this extension in product env, since it will slow
 ## Requirement
 - PHP-5.2 +
 
-##Note
+## NOTE
 Due to complication of PHP8.0 implementation, taint is not going to be compatible with PHP8.0+.
 
 ## Install
