@@ -1326,7 +1326,10 @@ static void php_taint_override_func(const char *name, php_func handler, php_func
 		if (stash) {
 			*stash = func->internal_function.handler;
 		}
+		fprintf(stderr, "[taint_dbg] override %s old=%p new=%p\n", name, (void*)func->internal_function.handler, (void*)handler);
 		func->internal_function.handler = handler;
+	} else {
+		fprintf(stderr, "[taint_dbg] override %s NOT FOUND\n", name);
 	}
 } /* }}} */
 
@@ -1579,8 +1582,10 @@ PHP_FUNCTION(taint_sprintf) {
 		}
 	}
 
+	fprintf(stderr, "[taint_dbg] sprintf argc=%d tainted=%d\n", argc, tainted);
 	TAINT_O_FUNC(sprintf)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 
+	fprintf(stderr, "[taint_dbg] sprintf ret type=%d tainted=%d\n", Z_TYPE_P(return_value), tainted);
 	if (tainted && IS_STRING == Z_TYPE_P(return_value) && Z_STRLEN_P(return_value)) {
 		TAINT_MARK(Z_STR_P(return_value));
 	}
