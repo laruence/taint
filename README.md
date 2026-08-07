@@ -8,10 +8,17 @@ The idea is from https://wiki.php.net/rfc/taint, I implemented it in a php exten
 Please note that do not enable this extension in product env, since it will slowdown your app.
 
 ## Requirement
-- PHP-5.2 +
+- PHP 8.0+ (this branch). PHP 7.x is supported by the taint 2.1.x releases.
 
 ## NOTE
-Due to complication of PHP8.0 implementation, taint is not going to be compatible with PHP8.0+.
+
+Taint works by installing user opcode handlers and swapping internal function
+handlers, so it conflicts with extensions that hook the executor or opcode
+handlers as well, most notably **opcache** and **xdebug**. Do not enable
+taint together with these extensions.
+
+Taint is a detection tool for development use and is not designed for
+production deployment anyway.
 
 ## Install
 taint is an PECL extension, thus you can simply install it by:

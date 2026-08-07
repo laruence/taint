@@ -4,6 +4,9 @@ Check SQLite3
 <?php if (!extension_loaded("taint") || !extension_loaded("sqlite3")) print "skip"; ?>
 --INI--
 taint.enable=1
+opcache.enable=0
+opcache.enable_cli=0
+xdebug.mode=off
 --FILE--
 <?php
 class MySQLite3 extends SQLite3 {

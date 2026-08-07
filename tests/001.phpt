@@ -2,6 +2,10 @@
 Check for taint presence
 --SKIPIF--
 <?php if (!extension_loaded("taint")) print "skip"; ?>
+--INI--
+opcache.enable=0
+opcache.enable_cli=0
+xdebug.mode=off
 --FILE--
 <?php 
 echo "taint extension is available";

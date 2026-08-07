@@ -4,6 +4,9 @@ Check dirname, basename, pathinfo
 <?php if (!extension_loaded("taint")) print "skip"; ?>
 --INI--
 taint.enable=1
+opcache.enable=0
+opcache.enable_cli=0
+xdebug.mode=off
 --FILE--
 <?php 
 function test() {

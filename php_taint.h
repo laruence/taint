@@ -19,6 +19,10 @@
 #ifndef PHP_TAINT_H
 #define PHP_TAINT_H
 
+#if PHP_VERSION_ID < 80000
+# error "taint 3.x requires PHP 8.0+, use taint 2.1.x for PHP 7.x"
+#endif
+
 extern zend_module_entry taint_module_entry;
 #define phpext_taint_ptr &taint_module_entry
 
@@ -32,47 +36,38 @@ extern zend_module_entry taint_module_entry;
 #include "TSRM.h"
 #endif
 
-#define PHP_TAINT_VERSION "2.1.1-dev"
+#define PHP_TAINT_VERSION "3.0.0-dev"
 
-/* it's important that make sure 
- * this value is not used by Zend or
- * any other extension against string */
-#define IS_STR_TAINT_POSSIBLE    (1<<7)
+/* Since PHP 7.3 every bit in the GC_FLAGS region of a zend_string is
+ * already taken (IS_STR_CLASS_NAME_MAP_PTR/IS_STR_INTERNED/IS_STR_PERSISTENT
+ * /IS_STR_PERMANENT/IS_STR_VALID_UTF8, bits 5..9), so the taint marker has
+ * to live in the GC_INFO region instead. Strings never participate in the
+ * cycle GC (no gc roots, no colors), therefore GC_INFO bit 0 (bit 10 of
+ * type_info) is guaranteed to be free for strings. */
+#define IS_STR_TAINT_POSSIBLE    (1u << GC_INFO_SHIFT)
 
-#if PHP_VERSION_ID >= 70000
-# if PHP_VERSION_ID >= 70200
-#  undef IS_STR_TAINT_POSSIBLE
-   /* Coflicts with GC_COLLECTABLE which is introduced in 7.2 */
-#  define IS_STR_TAINT_POSSIBLE (1<<6)
-# endif
-# if PHP_VERSION_ID >=70300
-#  define EX_CONSTANT(op) RT_CONSTANT(EX(opline), op)
-#  undef IS_STR_TAINT_POSSIBLE
-#  define IS_STR_TAINT_POSSIBLE (1<<5) /* GC_PROTECTED */
-#  define TAINT_MARK(str)     GC_ADD_FLAGS(str, IS_STR_TAINT_POSSIBLE)
-#  define TAINT_POSSIBLE(str) (GC_FLAGS((str)) & IS_STR_TAINT_POSSIBLE)
-#  define TAINT_CLEAN(str)    GC_DEL_FLAGS(str, IS_STR_TAINT_POSSIBLE)
-# else
-#  define TAINT_MARK(str)     (GC_FLAGS((str)) |= IS_STR_TAINT_POSSIBLE)
-#  define TAINT_POSSIBLE(str) (GC_FLAGS((str)) & IS_STR_TAINT_POSSIBLE)
-#  define TAINT_CLEAN(str)    (GC_FLAGS((str)) &= ~IS_STR_TAINT_POSSIBLE)
-# endif
-#else
-# error "Unsupported PHP Version ID:" PHP_VERSION_ID
-#endif
+/* Interned strings may be shared across requests (opcache SHM), persistent /
+ * permanent strings live beyond a single request: never mark those. Bit 6 =
+ * IS_STR_INTERNED (GC_IMMUTABLE), bit 7 = IS_STR_PERSISTENT (GC_PERSISTENT),
+ * bit 8 = IS_STR_PERMANENT (GC_PERSISTENT_LOCAL). */
+#define TAINT_MARK(str) do { \
+		zend_string *_s = (str); \
+		if (!(_s->gc.u.type_info & (GC_IMMUTABLE | GC_PERSISTENT | GC_PERSISTENT_LOCAL))) { \
+			_s->gc.u.type_info |= IS_STR_TAINT_POSSIBLE; \
+		} \
+	} while (0)
+/* GC_FLAGS()/GC_INFO() mask the type_info, test/clean the raw word instead */
+#define TAINT_POSSIBLE(str) ((str)->gc.u.type_info & IS_STR_TAINT_POSSIBLE)
+#define TAINT_CLEAN(str)    ((str)->gc.u.type_info &= ~IS_STR_TAINT_POSSIBLE)
+
+#define EX_CONSTANT(op) RT_CONSTANT(EX(opline), op)
 
 #define TAINT_OP1_TYPE(opline)	(opline->op1_type)
 #define TAINT_OP2_TYPE(opline)	(opline->op2_type)
 
-#if PHP_VERSION_ID < 70100
-#define TAINT_RET_USED(opline) (!((opline)->result_type & EXT_TYPE_UNUSED))
-#define TAINT_ISERR(var)       (var == &EG(error_zval))
-#define TAINT_ERR_ZVAL(var)    (var = &EG(error_zval))
-#else
 #define TAINT_RET_USED(opline) ((opline)->result_type != IS_UNUSED)
 #define TAINT_ISERR(var)       (Z_ISERROR_P(var))
 #define TAINT_ERR_ZVAL(var)    (ZVAL_ERROR(var))
-#endif
 
 typedef zval* taint_free_op;
 
@@ -105,15 +100,11 @@ PHP_FUNCTION(taint_dirname);
 PHP_FUNCTION(taint_basename);
 PHP_FUNCTION(taint_pathinfo);
 
-#if PHP_VERSION_ID >= 70300
 typedef zif_handler php_func;
-#else
-typedef void (*php_func)(INTERNAL_FUNCTION_PARAMETERS);
-#endif
 
 ZEND_BEGIN_MODULE_GLOBALS(taint)
-	zend_bool enable;
-	int       error_level;
+	bool enable;
+	int  error_level;
 ZEND_END_MODULE_GLOBALS(taint)
 
 #ifdef ZTS
