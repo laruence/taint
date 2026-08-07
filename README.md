@@ -8,7 +8,9 @@ The idea is from https://wiki.php.net/rfc/taint, I implemented it in a php exten
 Please note that do not enable this extension in product env, since it will slowdown your app.
 
 ## Requirement
-- PHP 8.0+ (this branch). PHP 7.x is supported by the taint 2.1.x releases.
+- PHP 8.0+ (`master` branch)
+- PHP 7.x (`php7` branch, taint 2.1.x releases)
+- PHP 5.x (`php5` branch, taint 1.x releases)
 
 ## NOTE
 
