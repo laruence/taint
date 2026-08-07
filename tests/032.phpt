@@ -53,5 +53,5 @@ bool(true)
 bool(false)
 bool(true)
 bool(true)
-caught: taint(): Argument #1 ($string) could not be passed by reference
+caught: taint(): Argument #1 ($string) c%st be passed by reference
 bool(true)
