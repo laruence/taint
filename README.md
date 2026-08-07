@@ -15,10 +15,10 @@ Please do not enable this extension in production environments, since it will sl
 ## How it works
 Strings received from user input are marked "tainted" at request startup, and
 the mark is tracked through string operations. When a tainted string reaches a
-dangerous sink(output, SQL query, shell command, file path, ...), taint raises
-a warning.
+dangerous sink (output, SQL query, shell command, file path, ...), taint
+raises a warning.
 
-Taint sources: `$_GET`, `$_POST` and `$_COOKIE`.
+Taint sources are: `$_GET`, `$_POST` and `$_COOKIE`.
 
 ## NOTE
 
@@ -130,9 +130,12 @@ If you need to hide the errors for a particular script, you can:
 ini_set('taint.error_level', 0);
 ````
 
-## Test
+## Testing
 ````
 $/path/to/phpize
 $./configure --with-php-config=/path/to/php-config
 $make test
 ````
+
+## License
+Taint is distributed under the PHP License 3.01, see https://www.php.net/license/3_01.txt .
