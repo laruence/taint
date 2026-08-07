@@ -1,13 +1,13 @@
 # Taint
 [![linux](https://github.com/laruence/taint/actions/workflows/linux.yml/badge.svg)](https://github.com/laruence/taint/actions/workflows/linux.yml)
 
-php extension used to detect XSS codes(tainted string), And also can be used to spot sql injection vulnerabilities, shell inject, etc.
+A PHP extension to detect XSS codes(tainted strings). It can also be used to spot SQL injection vulnerabilities, shell injection, etc.
 
-The idea is from https://wiki.php.net/rfc/taint, I implemented it in a php extension which make the patch no-needed.
+The idea comes from https://wiki.php.net/rfc/taint, and I implemented it as a PHP extension, so no core patch is needed.
 
-Please note that do not enable this extension in product env, since it will slowdown your app.
+Please do not enable this extension in production environments, since it will slow down your app.
 
-## Requirement
+## Requirements
 - PHP 8.0+ (`master` branch)
 - PHP 7.x (`php7` branch, taint 2.1.x releases)
 - PHP 5.x (`php5` branch, taint 1.x releases)
@@ -25,24 +25,24 @@ Taint sources: `$_GET`, `$_POST` and `$_COOKIE`.
 Taint works by installing user opcode handlers and swapping internal function
 handlers, so it conflicts with extensions that hook the executor or opcode
 handlers as well, most notably **opcache** and **xdebug**. Do not enable
-taint together with these extensions(the test suite disables both).
+taint together with these extensions (the test suite disables both).
 
 Taint is a detection tool for development use and is not designed for
 production deployment anyway.
 
 ## Install
-taint is an PECL extension, thus you can simply install it by:
+taint is a PECL extension, thus you can simply install it by:
 ````
 pecl install taint
 ````
-### Compile taint in Linux
+### Compile taint on Linux
 ````
 $/path/to/phpize
 $./configure --with-php-config=/path/to/php-config/
 $make && make install
 ````
 ### Usage
-When taint is enabled, if you pass a tainted string(comes from $_GET, $_POST or $_COOKIE) to some functions, taint will warn you about that.
+When taint is enabled, if you pass a tainted string(which comes from $_GET, $_POST or $_COOKIE) to some dangerous functions, taint will warn you about that.
 
 ````php
 <?php
@@ -123,7 +123,7 @@ untaint($a);
 | Name | Default | Changeable | Description |
 | --- | --- | --- | --- |
 | `taint.enable` | `0` | `PHP_INI_SYSTEM` | master switch |
-| `taint.error_level` | `512`(`E_USER_WARNING`) | `PHP_INI_ALL` | error level used for warnings |
+| `taint.error_level` | `512` (`E_USER_WARNING`) | `PHP_INI_ALL` | error level used for warnings |
 
 If you need to hide the errors for a particular script, you can:
 ````
