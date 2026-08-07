@@ -1005,6 +1005,20 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
 				php_taint_error(ZSTR_VAL(fname), "Attempt to print_r data that might be tainted");
 			}
+		} else if (zend_string_equals_literal(fname, "var_dump")) {
+			uint32_t i;
+			for (i = 0; i < arg_count; i++) {
+				zval *p = ZEND_CALL_ARG(ex, i + 1);
+				if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
+					php_taint_error(ZSTR_VAL(fname), "Attempt to var_dump data that might be tainted");
+					break;
+				}
+			}
+		} else if (zend_string_equals_literal(fname, "var_export")) {
+			zval *p = ZEND_CALL_ARG(ex, 1);
+			if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
+				php_taint_error(ZSTR_VAL(fname), "Attempt to var_export data that might be tainted");
+			}
 		} else if (zend_string_equals_literal(fname, "exit") ||
 				zend_string_equals_literal(fname, "die")) {
 			/* since PHP 8.5 exit/die are regular internal functions */
@@ -1024,7 +1038,9 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			}
 		} else if (zend_string_equals_literal(fname, "file") ||
 				zend_string_equals_literal(fname, "readfile") ||
-				zend_string_equals_literal(fname, "file_get_contents")) {
+				zend_string_equals_literal(fname, "file_get_contents") ||
+				zend_string_equals_literal(fname, "highlight_file") ||
+				zend_string_equals_literal(fname, "show_source")) {
 			zval *p = ZEND_CALL_ARG(ex, 1);
 			if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
 				php_taint_error(ZSTR_VAL(fname), "Attempt to read a file which path might be tainted");
@@ -1035,18 +1051,21 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				php_taint_error(ZSTR_VAL(fname), "Attempt to open a directory which path might be tainted");
 			}
 		} else if (zend_string_equals_literal(fname, "printf")) {
-			if (arg_count > 1) {
-				uint32_t i;
-				for (i = 0; i < arg_count; i++) {
-					zval *p = ZEND_CALL_ARG(ex, i + 1);
-					if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
-						php_taint_error(ZSTR_VAL(fname), "%dth argument contains data that might be tainted", i + 1);
-						break;
-					}
+			/* the format string is argument 1 and is emitted as-is when no
+			 * values are given, so it is checked like any other argument */
+			uint32_t i;
+			for (i = 0; i < arg_count; i++) {
+				zval *p = ZEND_CALL_ARG(ex, i + 1);
+				if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
+					php_taint_error(ZSTR_VAL(fname), "%dth argument contains data that might be tainted", i + 1);
+					break;
 				}
 			}
 		} else if (zend_string_equals_literal(fname, "vprintf")) {
-			if (arg_count > 1) {
+			zval *fmt = ZEND_CALL_ARG(ex, 1);
+			if (fmt && IS_STRING == Z_TYPE_P(fmt) && TAINT_POSSIBLE(Z_STR_P(fmt))) {
+				php_taint_error(ZSTR_VAL(fname), "1th argument contains data that might be tainted");
+			} else if (arg_count > 1) {
 				zend_string *key;
 				zend_long idx;
 				zval *val, *p = ZEND_CALL_ARG(ex, 2);
@@ -1065,20 +1084,18 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 				}
 			}
 		} else if (zend_string_equals_literal(fname, "file_put_contents") ||
-				zend_string_equals_literal(fname, "fwrite")) {
-			if (arg_count > 1) {
-				zval *fp, *str;
+				zend_string_equals_literal(fname, "fwrite") ||
+				zend_string_equals_literal(fname, "fputs")) {
+			zval *fp = ZEND_CALL_ARG(ex, 1);
 
-				fp = ZEND_CALL_ARG(ex, 1);
-				str = ZEND_CALL_ARG(ex, 2);
-
-				if (IS_STRING == Z_TYPE_P(fp)) {
-					if (zend_string_equals_literal(Z_STR_P(fp), "php://output")) {
-						if (IS_STRING == Z_TYPE_P(str) && TAINT_POSSIBLE(Z_STR_P(str))) {
-							php_taint_error(ZSTR_VAL(fname), "Attempt to output data that might be tainted");
-						}
+			if (fp && IS_STRING == Z_TYPE_P(fp)) {
+				if (TAINT_POSSIBLE(Z_STR_P(fp))) {
+					php_taint_error(ZSTR_VAL(fname), "Attempt to write a file which path might be tainted");
+				} else if (zend_string_equals_literal(Z_STR_P(fp), "php://output") && arg_count > 1) {
+					zval *str = ZEND_CALL_ARG(ex, 2);
+					if (str && IS_STRING == Z_TYPE_P(str) && TAINT_POSSIBLE(Z_STR_P(str))) {
+						php_taint_error(ZSTR_VAL(fname), "Attempt to output data that might be tainted");
 					}
-				} else if (Z_TYPE_P(fp) == IS_RESOURCE) {
 				}
 			}
 		} else if (zend_string_equals_literal(fname, "header")) {
@@ -1094,9 +1111,13 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			}
 		} else if (zend_string_equals_literal(fname, "mysqli_query") ||
 				zend_string_equals_literal(fname, "mysqli_prepare") ||
+				zend_string_equals_literal(fname, "mysqli_real_query") ||
+				zend_string_equals_literal(fname, "mysqli_multi_query") ||
 				zend_string_equals_literal(fname, "mysql_query") ||
 				zend_string_equals_literal(fname, "sqlite_query") ||
-				zend_string_equals_literal(fname, "sqlite_single_query")) {
+				zend_string_equals_literal(fname, "sqlite_single_query") ||
+				zend_string_equals_literal(fname, "pg_query") ||
+				zend_string_equals_literal(fname, "pg_send_query")) {
 			zval *query = ZEND_CALL_ARG(ex, arg_count);
 			if (query && IS_STRING == Z_TYPE_P(query) && TAINT_POSSIBLE(Z_STR_P(query))) {
 				php_taint_error(ZSTR_VAL(fname), "SQL statement contains data that might be tainted");
@@ -1144,6 +1165,49 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			if (cmd && IS_STRING == Z_TYPE_P(cmd) && TAINT_POSSIBLE(Z_STR_P(cmd))) {
 				php_taint_error(ZSTR_VAL(fname), "CMD statement contains data that might be tainted");
 			}
+		} else if (zend_string_equals_literal(fname, "setcookie") ||
+				zend_string_equals_literal(fname, "setrawcookie")) {
+			/* name and value both end up in the Set-Cookie header */
+			uint32_t i;
+			for (i = 1; i <= 2 && i <= arg_count; i++) {
+				zval *p = ZEND_CALL_ARG(ex, i);
+				if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
+					php_taint_error(ZSTR_VAL(fname), "%dth argument contains data that might be tainted", i);
+					break;
+				}
+			}
+		} else if (zend_string_equals_literal(fname, "mail")) {
+			/* to, subject, additional_params and additional_headers are
+			 * injection vectors; the message body is content, not checked */
+			static const uint32_t checked[] = {1, 2, 4, 5};
+			uint32_t i;
+			for (i = 0; i < sizeof(checked)/sizeof(uint32_t); i++) {
+				if (checked[i] <= arg_count) {
+					zval *p = ZEND_CALL_ARG(ex, checked[i]);
+					if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
+						php_taint_error(ZSTR_VAL(fname), "%dth argument contains data that might be tainted", checked[i]);
+						break;
+					}
+				}
+			}
+		} else if (zend_string_equals_literal(fname, "copy") ||
+				zend_string_equals_literal(fname, "rename") ||
+				zend_string_equals_literal(fname, "move_uploaded_file")) {
+			uint32_t i;
+			for (i = 1; i <= 2 && i <= arg_count; i++) {
+				zval *p = ZEND_CALL_ARG(ex, i);
+				if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
+					php_taint_error(ZSTR_VAL(fname), "%s path contains data that might be tainted", i == 1 ? "Source" : "Destination");
+					break;
+				}
+			}
+		} else if (zend_string_equals_literal(fname, "mkdir") ||
+				zend_string_equals_literal(fname, "rmdir") ||
+				zend_string_equals_literal(fname, "touch")) {
+			zval *p = ZEND_CALL_ARG(ex, 1);
+			if (p && IS_STRING == Z_TYPE_P(p) && TAINT_POSSIBLE(Z_STR_P(p))) {
+				php_taint_error(ZSTR_VAL(fname), "Path contains data that might be tainted");
+			}
 		}
 	} else {
 		char mname[64];
@@ -1152,7 +1216,9 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 
 		if (zend_string_equals_literal(class_name, "mysqli")) {
 			if (zend_string_equals_literal(fname, "query") ||
-				zend_string_equals_literal(fname, "prepare")) {
+				zend_string_equals_literal(fname, "prepare") ||
+				zend_string_equals_literal(fname, "real_query") ||
+				zend_string_equals_literal(fname, "multi_query")) {
 				zval *sql = ZEND_CALL_ARG(ex, 1);
 				if (sql && IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
 					snprintf(mname, sizeof(mname), "%s::%s", "mysqli", ZSTR_VAL(fname));
@@ -1161,7 +1227,8 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			}
 		} else if (zend_string_equals_literal(class_name, "PDO")) {
 			if (zend_string_equals_literal(fname, "query") ||
-				zend_string_equals_literal(fname, "prepare")) {
+				zend_string_equals_literal(fname, "prepare") ||
+				zend_string_equals_literal(fname, "exec")) {
 				zval *sql = ZEND_CALL_ARG(ex, arg_count);
 				if (sql && IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
 					snprintf(mname, sizeof(mname), "%s::%s", "PDO", ZSTR_VAL(fname));
@@ -1170,7 +1237,8 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 			}
 		} else if (zend_string_equals_literal(class_name, "SQLite3")) {
 			if (zend_string_equals_literal(fname, "query") ||
-				zend_string_equals_literal(fname, "prepare")) {
+				zend_string_equals_literal(fname, "prepare") ||
+				zend_string_equals_literal(fname, "exec")) {
 				zval *sql = ZEND_CALL_ARG(ex, arg_count);
 				if (sql && IS_STRING == Z_TYPE_P(sql) && TAINT_POSSIBLE(Z_STR_P(sql))) {
 					snprintf(mname, sizeof(mname), "%s::%s", "SQLite3", ZSTR_VAL(fname));

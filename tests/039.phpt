@@ -1,5 +1,5 @@
 --TEST--
-Sinks outside the check list stay silent even for tainted data
+Shallow checks: container internals stay silent even when values are tainted
 --SKIPIF--
 <?php if (!extension_loaded("taint")) print "skip"; ?>
 --INI--
@@ -14,7 +14,7 @@ taint($a);
 
 print_r(array("k" => $a));
 echo "\n";
-var_dump($a);
+var_dump(array("k" => $a));
 printf("no-args format\n");
 ?>
 --EXPECTF--
@@ -23,5 +23,8 @@ Array
     [k] => tainted string.
 )
 
-string(15) "tainted string."
+array(1) {
+  ["k"]=>
+  string(15) "tainted string."
+}
 no-args format
