@@ -49,5 +49,5 @@ Warning: main() [readfile]: Attempt to read a file which path might be tainted i
 Warning: readfile(%s): Failed to open stream: %s in %s029.php on line %d
 
 Warning: main() [opendir]: Attempt to open a directory which path might be tainted in %s029.php on line %d
-
+%A
 Warning: opendir(%s): Failed to open directory: %s in %s029.php on line %d
