@@ -669,6 +669,53 @@ static void php_taint_binary_assign_op_obj_dim(zend_object *zobj, zval *property
 }
 /* }}} */
 
+/* {{{ Engine helper compatibility
+ *
+ * The dimension fetch helpers used below were reshaped between 8.0 and 8.3:
+ *   - 8.0: zend_undefined_offset_write()/zend_undefined_index_write() return
+ *     zend_result and only warn; the caller does the insertion itself.
+ *   - 8.1+: both return zval* with the insertion already done.
+ *   - zend_cannot_add_element() is exported only since 8.3.
+ *   - zend_illegal_container_offset() exists only since 8.3.
+ * Provide shims on older versions, reproducing the newer semantics with the
+ * primitives each version exports (bodies copied from the matching engine
+ * code, so diagnostics stay identical).
+ */
+#if PHP_VERSION_ID < 80100
+static zend_always_inline zval *php_taint_undefined_offset_write(HashTable *ht, zend_long hval) {
+	if (zend_undefined_offset_write(ht, hval) == FAILURE) {
+		return NULL;
+	}
+	return zend_hash_index_add_new(ht, hval, &EG(uninitialized_zval));
+}
+static zend_always_inline zval *php_taint_undefined_index_write(HashTable *ht, zend_string *offset_key) {
+	zval *retval;
+	/* Key may be released while throwing the undefined index warning. */
+	zend_string_addref(offset_key);
+	if (zend_undefined_index_write(ht, offset_key) == FAILURE) {
+		zend_string_release(offset_key);
+		return NULL;
+	}
+	retval = zend_hash_add_new(ht, offset_key, &EG(uninitialized_zval));
+	zend_string_release(offset_key);
+	return retval;
+}
+#define zend_undefined_offset_write(ht, hval) php_taint_undefined_offset_write((ht), (hval))
+#define zend_undefined_index_write(ht, key)   php_taint_undefined_index_write((ht), (key))
+#define zend_dval_to_lval_safe(d)             zend_dval_to_lval(d)
+#define zend_use_resource_as_offset(dim) \
+	zend_error(E_WARNING, "Resource ID#" ZEND_LONG_FMT " used as offset, casting to integer (" ZEND_LONG_FMT ")", Z_RES_HANDLE_P(dim), Z_RES_HANDLE_P(dim))
+#define zend_false_to_array_deprecated()
+#endif
+
+#if PHP_VERSION_ID < 80300
+#define zend_cannot_add_element() \
+	zend_throw_error(NULL, "Cannot add element to the array as the next element is already occupied")
+#define zend_illegal_container_offset(container, offset, type) \
+	zend_type_error("Cannot access offset of type %s on %s", zend_zval_type_name(offset), ZSTR_VAL(container))
+#endif
+/* }}} */
+
 /* BP_VAR_RW dimension fetch on arrays (adapted from zend_execute.c with
  * PHP 8.x diagnostics). */
 static zval *php_taint_fetch_dimension_address_inner(HashTable *ht, const zval *dim, int dim_type) /* {{{ */ {
