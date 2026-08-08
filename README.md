@@ -95,15 +95,8 @@ $ pecl install taint
 
 ````
 $ /path/to/phpize
-$ ./configure --with-php-config=/path/to/php-config --enable-taint
-$ make && make install
-````
-
-Available configure options:
-
-````
---enable-taint    Enable taint support (default: no)
---disable-taint
+$ ./configure
+$ make
 ````
 
 ### Usage
@@ -217,13 +210,6 @@ untaint($a);        /* clear the mark */
 If you need to hide the errors for a particular script, you can:
 ````
 ini_set('taint.error_level', 0);
-````
-
-## Testing
-````
-$/path/to/phpize
-$./configure --with-php-config=/path/to/php-config --enable-taint
-$make test
 ````
 
 ## License

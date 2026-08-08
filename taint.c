@@ -1419,7 +1419,7 @@ static void php_taint_override_functions(void) /* {{{ */ {
 	php_taint_override_func(f_pathinfo, PHP_FN(taint_pathinfo), &TAINT_O_FUNC(pathinfo));
 } /* }}} */
 
-/* {{{ Frameless function interception (PHP 8.4+)
+/* Frameless function interception (PHP 8.4+)
  *
  * Since PHP 8.4 the optimizer may emit ZEND_FRAMELESS_ICALL_* opcodes for a
  * handful of common functions (trim, implode, strstr, substr, str_replace,
