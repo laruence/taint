@@ -14,8 +14,8 @@ Please do not enable this extension in production environments, since it will sl
 
 ## Requirements
 - PHP 8.0+ (`master` branch)
-- PHP 7.x (`php7` branch, taint 2.1.x releases)
-- PHP 5.x (`php5` branch, taint 1.x releases)
+- PHP 7.x ([php7 branch](https://github.com/laruence/taint/tree/php7), taint 2.1.x releases)
+- PHP 5.x ([php5 branch](https://github.com/laruence/taint/tree/php5), taint 1.x releases)
 
 ## How it works
 Strings received from user input are marked "tainted" at request startup, and
@@ -82,16 +82,30 @@ Taint is a detection tool for development use and is not designed for
 production deployment anyway.
 
 ## Install
-taint is a PECL extension, thus you can simply install it by:
+
+### Install via PECL
+
+Taint is a PECL extension, simply install it by:
+
 ````
-pecl install taint
+$ pecl install taint
 ````
-### Compile taint on Linux
+
+### Compile from source
+
 ````
-$/path/to/phpize
-$./configure --with-php-config=/path/to/php-config/
-$make && make install
+$ /path/to/phpize
+$ ./configure --with-php-config=/path/to/php-config --enable-taint
+$ make && make install
 ````
+
+Available configure options:
+
+````
+--enable-taint    Enable taint support (default: no)
+--disable-taint
+````
+
 ### Usage
 When taint is enabled, if you pass a tainted string(which comes from $_GET, $_POST or $_COOKIE) to some dangerous functions, taint will warn you about that.
 
@@ -160,17 +174,37 @@ development rather than to understand which context a string is safe in.
 
 ### API
 
+Taint registers three global functions and no classes or constants.
+
+````php
+taint(string &$string, string &...$strings): bool
+````
+
+Manually mark variables as tainted (by reference). Always returns `true`.
+Only non-empty strings are marked; other types and empty strings are silently
+ignored. When `taint.enable` is off, this is a no-op (still returns `true`).
+The mark lives on the string itself, so assignments just share it.
+
+````php
+untaint(string &$string, string &...$strings): bool
+````
+
+Clear the mark. Since the bit lives on the string itself, every copy/reference
+sharing the same string becomes clean at once. Always returns `true`.
+
+````php
+is_tainted(string $string): bool
+````
+
+Check whether a value carries the taint mark. Only strings can be tainted,
+other types return `false`. Always returns `false` when `taint.enable` is off.
+
 ````php
 <?php
-/* manually mark variables as tainted (by reference) */
-taint($a, $b);
-
-/* check; only strings can be tainted, other types return false */
-var_dump(is_tainted($a));
-
-/* clear the mark. The bit lives on the string itself, so every
-   copy/reference sharing the same string becomes clean at once */
-untaint($a);
+$a = $_GET['a'];
+taint($a);          /* manually mark as tainted (by reference) */
+var_dump(is_tainted($a));  /* true */
+untaint($a);        /* clear the mark */
 ````
 
 ### INI settings
@@ -188,9 +222,9 @@ ini_set('taint.error_level', 0);
 ## Testing
 ````
 $/path/to/phpize
-$./configure --with-php-config=/path/to/php-config
+$./configure --with-php-config=/path/to/php-config --enable-taint
 $make test
 ````
 
 ## License
-Taint is distributed under the PHP License 3.01, see https://www.php.net/license/3_01.txt .
+Taint is distributed under the [PHP-3.01](https://www.php.net/license/3_01.txt) license.
