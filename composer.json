@@ -1,0 +1,21 @@
+{
+  "name": "laruence/taint",
+  "type": "php-ext",
+  "license": "PHP-3.01",
+  "description": "Taint is a PHP extension for detecting XSS codes (tainted strings).",
+  "require": {
+    "php": ">=8.0"
+  },
+  "replace": {
+    "ext-taint": "*"
+  },
+  "php-ext": {
+    "extension-name": "ext-taint",
+    "configure-options": [
+      {
+        "name": "enable-taint",
+        "description": "whether to enable taint support"
+      }
+    ]
+  }
+}
