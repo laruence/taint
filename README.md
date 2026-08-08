@@ -7,6 +7,10 @@ The idea comes from https://wiki.php.net/rfc/taint, and I implemented it as a PH
 
 Please do not enable this extension in production environments, since it will slow down your app.
 
+> **EXPERIMENTAL.** Taint is a research-grade detection tool, not a security
+> product. Detection coverage, warning behavior and INI settings may change
+> between releases without any backward-compatibility guarantees.
+
 ## Requirements
 - PHP 8.0+ (`master` branch)
 - PHP 7.x (`php7` branch, taint 2.1.x releases)
@@ -19,6 +23,52 @@ dangerous sink (output, SQL query, shell command, file path, ...), taint
 raises a warning.
 
 Taint sources are: `$_GET`, `$_POST` and `$_COOKIE`.
+
+## Design philosophy
+
+- **One bit, no context.** The taint mark is a single bit stored on the
+  string itself (`zend_string`), not on the variable. It carries no
+  information about which context (HTML, SQL, shell, ...) the string will end
+  up in, and taint never tries to analyze whether a value is "actually safe"
+  for that context.
+- **Over-report rather than stay silent.** Concatenation, interpolation and a
+  whitelist of data-preserving string functions propagate the mark even when
+  the result happens to be harmless. A warning means "user input reached this
+  sink, go look at it", not "definitely exploitable". Noisy-but-auditable
+  beats clever-but-silent.
+- **Everything else clears the mark.** Any function taint does not explicitly
+  understand — including escaping helpers like `htmlspecialchars()` — returns
+  a fresh, unmarked string. Checks stay shallow on purpose: only top-level
+  string arguments of sink calls are inspected.
+- **Zero core changes.** The whole mechanism is implemented with user opcode
+  handlers and internal-function handler swaps, so taint is a normal PECL
+  extension that works on a stock PHP build. The price is that it conflicts
+  with other extensions that hook the executor (see NOTE below).
+- **Report, don't block.** Taint only raises warnings; it never alters or
+  rejects data. It is a bug-finding instrument for developers, not a runtime
+  defense.
+
+## When to use
+
+Good fits:
+
+- Auditing an existing codebase: run your test suite, or drive the app
+  manually, with taint enabled, and the warnings will point out paths where
+  raw user input reaches an output, SQL, shell, filesystem or code-execution
+  sink.
+- Regression checks in development/QA environments before a release — XSS,
+  SQL injection, command injection, file-path injection.
+- Understanding how user input flows through an unfamiliar application.
+
+Not a good fit:
+
+- **Production.** The instrumentation slows every request down, conflicts with
+  opcache/xdebug, and the warnings themselves may leak request data into
+  logs.
+- **Runtime defense / WAF.** Taint reports, it does not block, and its
+  context-independent bit cannot decide whether a value is really safe.
+- **A substitute for escaping and parameterization.** A clean run means
+  "nothing taint could see", never "provably secure".
 
 ## NOTE
 
@@ -97,6 +147,10 @@ paths):
 `trim`, `rtrim`, `ltrim`, `substr`, `strstr`, `str_replace`, `str_ireplace`,
 `str_pad`, `sprintf`, `vsprintf`, `implode`, `join`, `explode`, `strtolower`,
 `strtoupper`, `strval`, `dirname`, `basename`, `pathinfo`
+
+For `sprintf`/`vsprintf` only `%s` specifiers carry the mark through —
+`sprintf("%d", $t)` produces a clean string, since numeric specifiers emit
+derived values, not the original bytes.
 
 Any other function call produces a fresh, unmarked string — including
 escaping helpers such as `htmlspecialchars()`. Taint is a single,
