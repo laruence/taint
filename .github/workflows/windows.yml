@@ -27,3 +27,4 @@ jobs:
           php-version: ${{ matrix.php }}
           arch: x64
           ts: ${{ matrix.ts }}
+          test-workers: 1
