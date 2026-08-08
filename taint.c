@@ -1562,6 +1562,37 @@ PHP_FUNCTION(taint_strval) {
 }
 /* }}} */
 
+/* A printf-style format only carries argument bytes verbatim into the result
+ * through %s specifiers; numeric ones (%d, %u, %f, ...) emit values derived
+ * from the arguments, never their original string data. Scan for an unescaped
+ * %s. Exotic forms such as %'s8d (padding char 's') may over-report, which is
+ * in line with the general over-report-by-design policy. */
+static int php_taint_format_has_string_spec(zend_string *format) /* {{{ */ {
+	const char *p = ZSTR_VAL(format), *e = p + ZSTR_LEN(format);
+
+	while (p < e) {
+		if (*p++ != '%') {
+			continue;
+		}
+		if (p >= e) {
+			break;
+		}
+		if (*p == '%') { /* %% escape, no argument consumed */
+			p++;
+			continue;
+		}
+		/* skip [argnum$][flags][width][.precision] */
+		while (p < e && ((*p >= '0' && *p <= '9') || *p == '$' || *p == '.'
+					|| *p == '-' || *p == '+' || *p == ' ' || *p == '\'')) {
+			p++;
+		}
+		if (p < e && *p == 's') {
+			return 1;
+		}
+	}
+	return 0;
+} /* }}} */
+
 /* {{{ proto string sprintf(string $format, ...)
 */
 PHP_FUNCTION(taint_sprintf) {
@@ -1572,10 +1603,17 @@ PHP_FUNCTION(taint_sprintf) {
 		RETURN_FALSE;
 	}
 
-	for (i = 0; i < argc; i++) {
-		if (IS_STRING == Z_TYPE(args[i]) && TAINT_POSSIBLE(Z_STR(args[i]))) {
-			tainted = 1;
-			break;
+	/* a tainted format leaks into the result as-is; otherwise only %s copies
+	 * argument data verbatim (sprintf("%d", $t) emits a clean number) */
+	if (argc > 0 && IS_STRING == Z_TYPE(args[0]) && TAINT_POSSIBLE(Z_STR(args[0]))) {
+		tainted = 1;
+	} else if (argc > 1 && IS_STRING == Z_TYPE(args[0])
+			&& php_taint_format_has_string_spec(Z_STR(args[0]))) {
+		for (i = 1; i < argc; i++) {
+			if (IS_STRING == Z_TYPE(args[i]) && TAINT_POSSIBLE(Z_STR(args[i]))) {
+				tainted = 1;
+				break;
+			}
 		}
 	}
 
@@ -1602,6 +1640,11 @@ PHP_FUNCTION(taint_vsprintf) {
 		zval *val;
 		if (TAINT_POSSIBLE(format)) {
 			tainted = 1;
+			break;
+		}
+
+		/* without a %s specifier the result only contains derived values */
+		if (!php_taint_format_has_string_spec(format)) {
 			break;
 		}
 
