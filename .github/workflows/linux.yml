@@ -38,3 +38,44 @@ jobs:
         run: make
       - name: Test
         run: make test
+
+  debug:
+    name: "Linux PHP ${{ matrix.php }} (debug)"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # both ends of the supported range: 8.0 exercises the engine shims,
+        # 8.5 the current engine internals
+        php: ["8.0", "8.5"]
+    env:
+      TEST_PHP_ARGS: "--show-diff"
+      REPORT_EXIT_STATUS: "yes"
+      NO_INTERACTION: "yes"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf bison re2c libxml2-dev libsqlite3-dev libpq-dev
+      - name: Build PHP ${{ matrix.php }} from source (debug)
+        run: |
+          git clone --depth 1 --branch PHP-${{ matrix.php }} https://github.com/php/php-src.git ../php-src
+          cd ../php-src
+          ./buildconf --force
+          ./configure --enable-debug --disable-all \
+            --enable-pdo --enable-sqlite3 --with-pdo-sqlite \
+            --with-mysqli --with-pgsql
+          make -j$(nproc)
+      - name: Build taint
+        run: |
+          export PATH="$GITHUB_WORKSPACE/../php-src/sapi/cli:$PATH"
+          phpize
+          ./configure --with-php-config="$GITHUB_WORKSPACE/../php-src/scripts/php-config"
+          make
+      - name: Test
+        run: |
+          PHP="$GITHUB_WORKSPACE/../php-src/sapi/cli/php"
+          TEST_PHP_EXECUTABLE="$PHP" "$PHP" run-tests.php \
+            -d extension="$GITHUB_WORKSPACE/modules/taint.so" -q tests/

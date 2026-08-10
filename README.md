@@ -63,9 +63,9 @@ Good fits:
 
 Not a good fit:
 
-- **Production.** The instrumentation slows every request down, conflicts with
-  opcache/xdebug, and the warnings themselves may leak request data into
-  logs.
+- **Production.** The instrumentation slows every request down, forces the
+  OPcache JIT off and does not mix with xdebug (see NOTE below), and the
+  warnings themselves may leak request data into logs.
 - **Runtime defense / WAF.** Taint reports, it does not block, and its
   context-independent bit cannot decide whether a value is really safe.
 - **A substitute for escaping and parameterization.** A clean run means
@@ -74,9 +74,24 @@ Not a good fit:
 ## NOTE
 
 Taint works by installing user opcode handlers and swapping internal function
-handlers, so it conflicts with extensions that hook the executor or opcode
-handlers as well, most notably **opcache** and **xdebug**. Do not enable
-taint together with these extensions (the test suite disables both).
+handlers. That makes it incompatible with the **OPcache JIT** — but not with
+OPcache itself:
+
+- **OPcache (the opcode cache)** works fine together with taint.
+- **OPcache JIT** cannot run at the same time: JIT-compiled code bypasses user
+  opcode handlers, so the PHP engine refuses to start the JIT whenever an
+  extension (like taint) has registered handlers. If `opcache.jit` is
+  configured, PHP prints this warning at process startup and simply runs
+  without the JIT:
+
+  ````
+  Warning: JIT is incompatible with third party extensions that setup user opcode handlers. JIT disabled.
+  ````
+
+  Taint itself keeps working normally — you just get no JIT speedups while it
+  is loaded. This is enforced by the engine; there is nothing to configure.
+- **Xdebug** hooks the executor as well; do not enable taint and xdebug
+  together (the test suite runs with opcache and xdebug disabled).
 
 Taint is a detection tool for development use and is not designed for
 production deployment anyway.
