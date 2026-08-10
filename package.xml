@@ -98,8 +98,8 @@
  </contents> 
  <dependencies> 
   <required> 
-   <php> 
-    <min>7.0.0</min> 
+   <php>
+    <min>8.0.0</min>
    </php> 
    <pearinstaller> 
     <min>1.4.0</min> 
@@ -324,7 +324,7 @@
    </stability> 
    <license uri="http://www.php.net/license">PHP License</license> 
    <notes> 
-    - Fixed bug #62395 (str_replace重写有误)
+    - Fixed bug #62395 (str_replace rewrite error)
    </notes> 
   </release> 
   <release> 
