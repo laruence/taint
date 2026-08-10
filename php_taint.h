@@ -36,7 +36,7 @@ extern zend_module_entry taint_module_entry;
 #include "TSRM.h"
 #endif
 
-#define PHP_TAINT_VERSION "3.0.0-dev"
+#define PHP_TAINT_VERSION "3.0.0"
 
 /* Since PHP 7.3 every bit in the GC_FLAGS region of a zend_string is
  * already taken (IS_STR_CLASS_NAME_MAP_PTR/IS_STR_INTERNED/IS_STR_PERSISTENT

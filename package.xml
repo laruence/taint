@@ -13,19 +13,22 @@
   <email>laruence@php.net</email>
   <active>yes</active>
  </lead>
- <date>2020-04-09</date>
- <time>21:00:00</time>
+ <date>2026-08-10</date>
+ <time>15:40:00</time>
  <version>
-  <release>2.1.0</release>
-  <api>2.1.0</api>
+  <release>3.0.0</release>
+  <api>3.0.0</api>
  </version>
  <stability>
-  <release>stable</release>
-  <api>stable</api>
+  <release>beta</release>
+  <api>beta</api>
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
- <notes> 
-   - Fixed conflicts with Xdebug
+ <notes>
+   - Support PHP 8.0 up to 8.5
+   - Dropped PHP 7 support (use taint 2.1.x for PHP 7.x)
+   - Propagate the taint mark through the frameless call fast paths (PHP 8.4+)
+   - Extended sink coverage (see README for the full list)
  </notes>
  <contents> 
   <dir name="/"> 
@@ -55,12 +58,41 @@
     <file name="016.phpt" role="test" />
     <file name="017.phpt" role="test" />
     <file name="018.phpt" role="test" />
+    <file name="019.phpt" role="test" />
+    <file name="020.phpt" role="test" />
+    <file name="021.phpt" role="test" />
+    <file name="022.phpt" role="test" />
+    <file name="023.phpt" role="test" />
+    <file name="024.phpt" role="test" />
+    <file name="025.phpt" role="test" />
+    <file name="026.phpt" role="test" />
+    <file name="027.phpt" role="test" />
+    <file name="028.phpt" role="test" />
+    <file name="029.phpt" role="test" />
+    <file name="030.phpt" role="test" />
+    <file name="031.phpt" role="test" />
+    <file name="032.phpt" role="test" />
+    <file name="033.phpt" role="test" />
+    <file name="034.phpt" role="test" />
+    <file name="035.phpt" role="test" />
+    <file name="036.phpt" role="test" />
+    <file name="037.phpt" role="test" />
+    <file name="038.phpt" role="test" />
+    <file name="039.phpt" role="test" />
+    <file name="040.phpt" role="test" />
+    <file name="041.phpt" role="test" />
+    <file name="042.phpt" role="test" />
+    <file name="043.phpt" role="test" />
+    <file name="044.phpt" role="test" />
+    <file name="045.phpt" role="test" />
+    <file name="046.phpt" role="test" />
     <file name="bug61163.phpt" role="test" />
     <file name="bug61816.phpt" role="test" />
     <file name="bug63100.phpt" role="test" />
     <file name="bug63123.phpt" role="test" />
     <file name="issue004.phpt" role="test" />
     <file name="issue026.phpt" role="test" />
+    <file name="issue061.phpt" role="test" />
    </dir>
   </dir> 
  </contents> 
@@ -76,8 +108,26 @@
  </dependencies> 
  <providesextension>taint</providesextension>
  <extsrcrelease />
- <changelog> 
-  <release> 
+ <changelog>
+  <release>
+   <date>2026-08-10</date>
+   <version>
+    <release>3.0.0</release>
+    <api>3.0.0</api>
+   </version>
+   <stability>
+    <release>beta</release>
+    <api>beta</api>
+   </stability>
+   <license uri="http://www.php.net/license">PHP License</license>
+   <notes>
+    - Support PHP 8.0 up to 8.5
+    - Dropped PHP 7 support (use taint 2.1.x for PHP 7.x)
+    - Propagate the taint mark through the frameless call fast paths (PHP 8.4+)
+    - Extended sink coverage (see README for the full list)
+   </notes>
+  </release>
+  <release>
    <date>2020-04-09</date> 
    <version> 
     <release>2.1.0</release> 
