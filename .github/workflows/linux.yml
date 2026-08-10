@@ -64,18 +64,22 @@ jobs:
           git clone --depth 1 --branch PHP-${{ matrix.php }} https://github.com/php/php-src.git ../php-src
           cd ../php-src
           ./buildconf --force
-          ./configure --enable-debug --disable-all \
-            --enable-pdo --enable-sqlite3 --with-pdo-sqlite \
+          ./configure --prefix="$GITHUB_WORKSPACE/../php-install" \
+            --enable-debug --disable-all \
+            --enable-pdo --with-sqlite3 --with-pdo-sqlite \
             --with-mysqli --with-pgsql
           make -j$(nproc)
+          # in-tree scripts/php-config is not executable (php-config.in is
+          # committed 644), so build taint against the installed tree
+          make install
       - name: Build taint
         run: |
-          export PATH="$GITHUB_WORKSPACE/../php-src/sapi/cli:$PATH"
+          export PATH="$GITHUB_WORKSPACE/../php-install/bin:$PATH"
           phpize
-          ./configure --with-php-config="$GITHUB_WORKSPACE/../php-src/scripts/php-config"
+          ./configure --with-php-config="$GITHUB_WORKSPACE/../php-install/bin/php-config"
           make
       - name: Test
         run: |
-          PHP="$GITHUB_WORKSPACE/../php-src/sapi/cli/php"
+          PHP="$GITHUB_WORKSPACE/../php-install/bin/php"
           TEST_PHP_EXECUTABLE="$PHP" "$PHP" run-tests.php \
             -d extension="$GITHUB_WORKSPACE/modules/taint.so" -q tests/
