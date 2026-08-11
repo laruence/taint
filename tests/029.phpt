@@ -24,7 +24,7 @@ readfile($p);
 opendir($p);
 ?>
 --EXPECTF--
-Warning: main() [printf]: 2th argument contains data that might be tainted in %s029.php on line %d
+Warning: main() %s that might be tainted in %s029.php on line %d
 p:tainted string.
 
 Warning: main() [vprintf]: Second argument contains data(index:0) that might be tainted in %s029.php on line %d
@@ -38,16 +38,16 @@ tainted string.
 
 Warning: main() [fopen]: Attempt to open a file which path might be tainted in %s029.php on line %d
 
-Warning: fopen(%s): Failed to open stream: %s in %s029.php on line %d
+Warning: fopen(%s: Failed to open stream: %s in %s029.php on line %d
 
 Warning: main() [unlink]: Attempt to unlink a file which path might be tainted in %s029.php on line %d
 
-Warning: unlink(%s): %s in %s029.php on line %d
+Warning: unlink(%s: %s in %s029.php on line %d
 
 Warning: main() [readfile]: Attempt to read a file which path might be tainted in %s029.php on line %d
 
-Warning: readfile(%s): Failed to open stream: %s in %s029.php on line %d
+Warning: readfile(%s: Failed to open stream: %s in %s029.php on line %d
 
 Warning: main() [opendir]: Attempt to open a directory which path might be tainted in %s029.php on line %d
 %A
-Warning: opendir(%s): Failed to open directory: %s in %s029.php on line %d
+Warning: opendir(%s: Failed to open directory: %s in %s029.php on line %d

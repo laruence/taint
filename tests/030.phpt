@@ -21,17 +21,17 @@ echo "done\n";
 --EXPECTF--
 Warning: main() [include]: File path contains data that might be tainted in %s030.php on line %d
 
-Warning: include(%s): Failed to open stream: %s in %s030.php on line %d
+Warning: include(%s: Failed to open stream: %s in %s030.php on line %d
 
 Warning: include(): Failed opening '%s' for inclusion (include_path='%s') in %s030.php on line %d
 
 Warning: main() [include_once]: File path contains data that might be tainted in %s030.php on line %d
 
-Warning: include_once(%s): Failed to open stream: %s in %s030.php on line %d
+Warning: include_once(%s: Failed to open stream: %s in %s030.php on line %d
 
 Warning: include_once(): Failed opening '%s' for inclusion (include_path='%s') in %s030.php on line %d
 
-Warning: include(%s): Failed to open stream: %s in %s030.php on line %d
+Warning: include(%s: Failed to open stream: %s in %s030.php on line %d
 
 Warning: include(): Failed opening '%s' for inclusion (include_path='%s') in %s030.php on line %d
 done
