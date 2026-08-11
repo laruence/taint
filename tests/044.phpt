@@ -20,19 +20,19 @@ show_source($a);
 echo "done\n";
 ?>
 --EXPECTF--
-Warning: highlight_file(%s): Failed to open stream: %s in %s044.php on line %d
+Warning: highlight_file(%s: Failed to open stream: %s in %s044.php on line %d
 
 Warning: highlight_file(): Failed opening %s for highlighting in %s044.php on line %d
 
 Warning: main() [highlight_file]: Attempt to read a file which path might be tainted in %s044.php on line %d
 
-Warning: highlight_file(%s): Failed to open stream: %s in %s044.php on line %d
+Warning: highlight_file(%s: Failed to open stream: %s in %s044.php on line %d
 
 Warning: highlight_file(): Failed opening %s for highlighting in %s044.php on line %d
 
 Warning: main() [show_source]: Attempt to read a file which path might be tainted in %s044.php on line %d
 
-Warning: show_source(%s): Failed to open stream: %s in %s044.php on line %d
+Warning: show_source(%s: Failed to open stream: %s in %s044.php on line %d
 
 Warning: show_source(): Failed opening %s for highlighting in %s044.php on line %d
 done
