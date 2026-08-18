@@ -6,15 +6,13 @@
   "require": {
     "php": ">=8.0"
   },
-  "replace": {
-    "ext-taint": "*"
-  },
   "php-ext": {
-    "extension-name": "ext-taint",
+    "extension-name": "taint",
     "configure-options": [
       {
         "name": "enable-taint",
-        "description": "whether to enable taint support"
+        "description": "whether to enable taint support",
+        "needs-value": false
       }
     ]
   }
