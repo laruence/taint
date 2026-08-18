@@ -3,6 +3,14 @@
   "type": "php-ext",
   "license": "PHP-3.01",
   "description": "Taint is a PHP extension for detecting XSS codes (tainted strings).",
+  "keywords": ["security", "xss", "taint analysis", "extension"],
+  "homepage": "https://github.com/laruence/taint",
+  "authors": [
+    {
+      "name": "Laruence",
+      "homepage": "https://www.laruence.com"
+    }
+  ],
   "require": {
     "php": ">=8.0"
   },
