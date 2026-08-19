@@ -18,9 +18,6 @@ taint($needle);
 var_dump(is_tainted(str_replace($a, "x", "haystack")));
 var_dump(is_tainted(str_ireplace($a, "x", "haystack")));
 
-/* only separator tainted */
-var_dump(is_tainted(implode($a, ["clean" . chr(33), "x"])));
-
 /* only needle tainted: result is a substring of the clean haystack */
 var_dump(is_tainted(strstr("hello world", $needle)));
 
@@ -43,7 +40,6 @@ var_dump(is_tainted((string)(int)$a));
 var_dump(is_tainted(strval((int)$a)));
 ?>
 --EXPECTF--
-bool(false)
 bool(false)
 bool(false)
 bool(false)

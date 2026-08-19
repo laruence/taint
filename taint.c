@@ -1454,8 +1454,8 @@ static int php_taint_flic_check(zend_string *fname, int nargs, zval *arg1, zval 
 		if (nargs == 1) {
 			return php_taint_flf_str_array_tainted(arg1);
 		} else if (nargs == 2) {
-			/* arg1 is the separator, only the array elements are checked */
-			return php_taint_flf_str_array_tainted(arg2);
+			/* the separator's bytes end up in the result as well */
+			return TAINT_STR_TAINTED(arg1) || php_taint_flf_str_array_tainted(arg2);
 		}
 	} else if (nargs >= 2 && (zend_string_equals_literal(fname, "strstr")
 			|| zend_string_equals_literal(fname, "substr"))) {
