@@ -29,6 +29,9 @@ var_dump(is_tainted(strstr($a, "string", true)));
 /* implode: frameless arity 1 and 2 */
 var_dump(is_tainted(implode([$a])));
 var_dump(is_tainted(implode(",", [$a, "clean" . chr(33)])));
+/* a tainted separator flows into the result too; clean input stays clean */
+var_dump(is_tainted(implode($a, ["clean", "strings"])));
+var_dump(is_tainted(implode(",", ["clean", "strings"])));
 
 /* str_replace: frameless arity 3 */
 var_dump(is_tainted(str_replace("string", "rope", $a)));
@@ -52,6 +55,8 @@ bool(true)
 bool(true)
 bool(true)
 bool(true)
+bool(true)
+bool(false)
 bool(true)
 bool(true)
 bool(true)

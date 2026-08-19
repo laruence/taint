@@ -1752,6 +1752,10 @@ PHP_FUNCTION(taint_implode) {
 		target = op1;
 	} else {
 		target = op2;
+		/* the separator's bytes end up in the result as well */
+		if (IS_STRING == Z_TYPE_P(op1) && Z_STRLEN_P(op1) && TAINT_POSSIBLE(Z_STR_P(op1))) {
+			tainted = 1;
+		}
 	}
 
 	if (Z_TYPE_P(target) == IS_ARRAY) {
