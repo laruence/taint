@@ -1176,8 +1176,17 @@ static void php_taint_fcall_check(zend_execute_data *ex, const zend_op *opline, 
 					php_taint_error(ZSTR_VAL(fname), "SQL statement contains data that might be tainted");
 				}
 			}
-		} else if (zend_string_equals_literal(fname, "preg_replace_callback")) {
-			if (arg_count > 1) {
+		} else if (zend_string_equals_literal(fname, "preg_match") ||
+				zend_string_equals_literal(fname, "preg_match_all") ||
+				zend_string_equals_literal(fname, "preg_replace") ||
+				zend_string_equals_literal(fname, "preg_split") ||
+				zend_string_equals_literal(fname, "preg_grep") ||
+				zend_string_equals_literal(fname, "preg_replace_callback")) {
+			zval *pattern = ZEND_CALL_ARG(ex, 1);
+			if (pattern && IS_STRING == Z_TYPE_P(pattern) && TAINT_POSSIBLE(Z_STR_P(pattern))) {
+				php_taint_error(ZSTR_VAL(fname), "Pattern contains data that might be tainted");
+			}
+			if (zend_string_equals_literal(fname, "preg_replace_callback") && arg_count > 1) {
 				zval *callback = ZEND_CALL_ARG(ex, 2);
 				if (callback && IS_STRING == Z_TYPE_P(callback)) {
 					if (TAINT_POSSIBLE(Z_STR_P(callback))) {
@@ -1430,6 +1439,29 @@ static void php_taint_override_functions(void) /* {{{ */ {
  * opcodes themselves are hooked and re-executed here. */
 #if PHP_VERSION_ID >= 80400
 
+/* Error reporting for frameless calls. get_active_function_name() resolves
+ * frameless icalls to the callee itself (the ENGINE sees the FRAMELESS_ICALL
+ * opcode as the current call), but no call frame exists; the user-visible
+ * context is the enclosing user function, like for any other taint warning. */
+static void php_taint_flic_error(zend_execute_data *execute_data, const char *fname, const char *format, ...) /* {{{ */ {
+	char *buffer, *msg;
+	va_list args;
+	const char *scope = "main";
+	const zend_function *func = execute_data ? execute_data->func : NULL;
+
+	if (func && func->common.function_name) {
+		scope = ZSTR_VAL(func->common.function_name);
+	}
+
+	va_start(args, format);
+	vspprintf(&buffer, 0, format, args);
+	spprintf(&msg, 0, "%s() [%s]: %s", scope, fname, buffer);
+	efree(buffer);
+	zend_error(TAINT_G(error_level), "%s", msg);
+	efree(msg);
+	va_end(args);
+} /* }}} */
+
 static int php_taint_flf_str_array_tainted(zval *arr) /* {{{ */ {
 	zval *val;
 
@@ -1492,7 +1524,9 @@ static int php_taint_flic_handler(zend_execute_data *execute_data) /* {{{ */ {
 				|| zend_string_equals_literal(fname, "strstr")
 				|| zend_string_equals_literal(fname, "substr")
 				|| zend_string_equals_literal(fname, "str_replace")
-				|| zend_string_equals_literal(fname, "dirname")) {
+				|| zend_string_equals_literal(fname, "dirname")
+				|| zend_string_equals_literal(fname, "preg_match")
+				|| zend_string_equals_literal(fname, "preg_replace")) {
 			handled = 1;
 		}
 	}
@@ -1534,6 +1568,17 @@ static int php_taint_flic_handler(zend_execute_data *execute_data) /* {{{ */ {
 		}
 		ZVAL_UNDEF(result);
 		return ZEND_HANDLE_EXCEPTION;
+	}
+
+	/* sink check for frameless calls: they never reach the DO_FCALL handler,
+	 * so preg_* patterns are checked here (mirrors php_taint_fcall_check) */
+	{
+		zend_string *fname = fbc->common.function_name;
+		if ((zend_string_equals_literal(fname, "preg_match")
+				|| zend_string_equals_literal(fname, "preg_replace"))
+				&& arg1 && IS_STRING == Z_TYPE_P(arg1) && TAINT_POSSIBLE(Z_STR_P(arg1))) {
+			php_taint_flic_error(execute_data, ZSTR_VAL(fname), "Pattern contains data that might be tainted");
+		}
 	}
 
 	tainted = php_taint_flic_check(fbc->common.function_name, nargs, arg1, arg2, arg3);
